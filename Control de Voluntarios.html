@@ -1,0 +1,2127 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Control de Voluntarios</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  /* Layout: una sola columna centrada. Contadores arriba, formulario, lista y barra fija para finalizar. */
+  :root {
+    --paper: #FFFFFF;
+    --surface: #FFFFFF;
+    --subtle: #F6F6F7;
+    --ink: #17171C;
+    --mute: #6B6B75;
+    --line: #E6E6E9;
+    --accent: #CC1257;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #FDE8F1;
+    --rosa: #E8458D;
+    --rosa-claro: #F5A9CC;
+    --danger: #D92D20;
+    --danger-bg: #FEECEB;
+    --ok: #137A4B;
+    --ok-bg: #E2F4EA;
+    --comida: #B45309;
+    --comida-bg: #FEF3C7;
+    --cena: #6D28D9;
+    --cena-bg: #EDE9FE;
+    --snack: #0F766E;
+    --snack-bg: #CCFBF1;
+    --ticket: #FFFFFF;
+    --ticket-ink: #17171C;
+    --ticket-mute: #6B6B75;
+    color-scheme: light;
+  }
+  html { background: #FFFFFF; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    padding-block: 24px 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1, h2, h3 { text-wrap: balance; }
+  .focus-ring:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  @keyframes flash-row { 0%, 55% { background: var(--danger-bg); } 100% { background: transparent; } }
+  .flash { animation: flash-row 2.6s ease-out; }
+  .ticket-edge {
+    height: 8px;
+    background-image:
+      linear-gradient(135deg, var(--ticket) 4px, transparent 0),
+      linear-gradient(225deg, var(--ticket) 4px, transparent 0);
+    background-size: 8px 8px;
+    background-repeat: repeat-x;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+</style>
+
+<div id="root"></div>
+
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        display: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+      },
+      extend: {
+        colors: {
+          paper: 'var(--paper)', surface: 'var(--surface)', subtle: 'var(--subtle)', rosa: 'var(--rosa)', 'rosa-claro': 'var(--rosa-claro)', ink: 'var(--ink)', mute: 'var(--mute)', line: 'var(--line)',
+          accent: 'var(--accent)', 'accent-ink': 'var(--accent-ink)', 'accent-soft': 'var(--accent-soft)',
+          danger: 'var(--danger)', 'danger-bg': 'var(--danger-bg)', ok: 'var(--ok)', 'ok-bg': 'var(--ok-bg)',
+          comida: 'var(--comida)', 'comida-bg': 'var(--comida-bg)',
+          cena: 'var(--cena)', 'cena-bg': 'var(--cena-bg)',
+          snack: 'var(--snack)', 'snack-bg': 'var(--snack-bg)',
+          ticket: 'var(--ticket)', 'ticket-ink': 'var(--ticket-ink)', 'ticket-mute': 'var(--ticket-mute)'
+        }
+      }
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+(function () {
+  const { useState, useEffect, useMemo, useRef } = React;
+  const html = htm.bind(React.createElement);
+
+  /* ---------- Datos y utilidades ---------- */
+  const MEALS = [
+    { key: 'comida', bit: 1, label: 'Comida', plural: 'Comidas', short: 'COM' },
+    { key: 'cena', bit: 2, label: 'Cena', plural: 'Cenas', short: 'CEN' },
+    { key: 'snack', bit: 4, label: 'Snack', plural: 'Snacks', short: 'SNK' }
+  ];
+  const ALL = 7;
+  const qtyOf = (v, m) => ((v & m.bit) ? 1 : 0) + ((v & (m.bit << 3)) ? 1 : 0);
+  const MEAL_STYLE = {
+    comida: { on: 'border-comida bg-comida-bg', box: 'border-comida bg-comida text-accent-ink', chip: 'bg-comida-bg text-comida', dot: 'bg-comida' },
+    cena: { on: 'border-cena bg-cena-bg', box: 'border-cena bg-cena text-accent-ink', chip: 'bg-cena-bg text-cena', dot: 'bg-cena' },
+    snack: { on: 'border-snack bg-snack-bg', box: 'border-snack bg-snack text-accent-ink', chip: 'bg-snack-bg text-snack', dot: 'bg-snack' }
+  };
+  /* nombre, área, día inicial (1 = hoy), día final, comidas (1 comida, 2 cena, 4 snack), excepciones {desplazamiento: comidas} */
+  const EJEMPLO = [
+    ['Ana Lucía Torres Medina', 'Jugadores', 1, 9, 7, null],
+    ['Carlos Eduardo Ramírez Soto', 'Jugadores', 1, 8, 7, null],
+    ['María Fernanda López Ruiz', 'Árbitros', 2, 7, 3, null],
+    ['José Luis Hernández Vega', 'Staff', 1, 6, 5, null],
+    ['Valeria Sánchez Ortega', 'Jugadores', 3, 9, 7, null],
+    ['Diego Armando Cruz Navarro', 'Seguridad', 1, 9, 3, { 0: 2 }],
+    ['Paola Guadalupe Mendoza Ríos', 'Staff', 4, 9, 6, null],
+    ['Ricardo Salinas Aguirre', 'Árbitros', 1, 5, 7, null]
+  ];
+  const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const DIAS_C = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const SEMANA = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+  const STORE_KEY = 'control-voluntarios:v3';
+  const LOGO = 'data:image/png;base64,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';
+  const DECLARACION = 'Declaro que capturé y revisé esta lista y que es correcta. Las raciones se entregarán conforme a este acuse.';
+
+  const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const pad = (n) => String(n).padStart(2, '0');
+  const collapse = (s) => s.replace(/\s+/g, ' ').trim();
+  const normalize = (s) => collapse(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const plural = (n, one, many) => (n === 1 ? one : many);
+
+  /* fechas: cada día se guarda como texto AAAA-MM-DD */
+  function keyOf(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function parseKey(k) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(k || '');
+    if (!m) return null;
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  function labelShort(k) { const d = parseKey(k); return d ? DIAS_C[d.getDay()] + ' ' + d.getDate() + ' ' + MESES_C[d.getMonth()] : k; }
+  function labelFull(k) { const d = parseKey(k); return d ? labelShort(k) + ' ' + d.getFullYear() : k; }
+  function runLabel(a, b) {
+    if (a === b) return labelFull(a);
+    const da = parseKey(a);
+    const db = parseKey(b);
+    return (da.getFullYear() === db.getFullYear() ? labelShort(a) : labelFull(a)) + ' al ' + labelFull(b);
+  }
+  function shortRange(a, b) {
+    const da = parseKey(a);
+    const db = parseKey(b);
+    if (a === b) return da.getDate() + ' ' + MESES_C[da.getMonth()];
+    if (da.getMonth() === db.getMonth() && da.getFullYear() === db.getFullYear()) return da.getDate() + '–' + db.getDate() + ' ' + MESES_C[da.getMonth()];
+    return da.getDate() + ' ' + MESES_C[da.getMonth()] + ' – ' + db.getDate() + ' ' + MESES_C[db.getMonth()];
+  }
+  function monthCells(y, m) {
+    const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    const dim = new Date(y, m + 1, 0).getDate();
+    const weeks = Math.ceil((offset + dim) / 7);
+    return Array.from({ length: weeks * 7 }, (_, i) => {
+      const d = new Date(y, m, 1 - offset + i);
+      return { key: keyOf(d), day: d.getDate(), out: d.getMonth() !== m };
+    });
+  }
+
+  /* días de una persona: { 'AAAA-MM-DD': comidas }, con comidas = 1 comida + 2 cena + 4 snack */
+  function cleanDays(o) {
+    const r = {};
+    Object.keys(o || {}).forEach((k) => {
+      let v = (parseInt(o[k], 10) || 0) & 63;
+      MEALS.forEach((m) => { if (v & (m.bit << 3)) v |= m.bit; });
+      if ((v & ALL) && parseKey(k)) r[k] = v;
+    });
+    return r;
+  }
+  const sortedKeys = (days) => Object.keys(days).filter((k) => days[k]).sort();
+  function personTotals(days) {
+    const t = { comida: 0, cena: 0, snack: 0, raciones: 0, dias: 0 };
+    sortedKeys(days).forEach((k) => {
+      MEALS.forEach((m) => { const q = qtyOf(days[k], m); if (q) { t[m.key] += q; t.raciones += q; } });
+      t.dias += 1;
+    });
+    return t;
+  }
+  function totalsOf(list) {
+    const map = {};
+    const t = { people: list.length, comida: 0, cena: 0, snack: 0, raciones: 0, byDay: [] };
+    list.forEach((p) => sortedKeys(p.days).forEach((k) => {
+      const b = map[k] || (map[k] = { key: k, comida: 0, cena: 0, snack: 0, total: 0 });
+      MEALS.forEach((m) => {
+        const q = qtyOf(p.days[k], m);
+        if (q) { t[m.key] += q; t.raciones += q; b[m.key] += q; b.total += q; }
+      });
+    }));
+    t.byDay = Object.keys(map).sort().map((k) => map[k]);
+    return t;
+  }
+  function dateRuns(keys) {
+    const runs = [];
+    keys.forEach((k) => {
+      const last = runs[runs.length - 1];
+      if (last && keyOf(addDays(parseKey(last.to), 1)) === k) last.to = k;
+      else runs.push({ from: k, to: k });
+    });
+    return runs;
+  }
+  function diasTexto(days) {
+    const keys = sortedKeys(days);
+    if (!keys.length) return 'Sin días';
+    return dateRuns(keys).map((r) => shortRange(r.from, r.to)).join(', ');
+  }
+  function runsOf(days) {
+    const runs = [];
+    sortedKeys(days).forEach((k) => {
+      const last = runs[runs.length - 1];
+      if (last && last.mask === days[k] && keyOf(addDays(parseKey(last.to), 1)) === k) { last.to = k; last.count += 1; }
+      else runs.push({ from: k, to: k, mask: days[k], count: 1 });
+    });
+    return runs;
+  }
+  const mealsText = (mask) => MEALS.filter((m) => mask & m.bit).map((m) => m.label + (qtyOf(mask, m) > 1 ? ' ×2' : '')).join(' + ');
+  const mealsShort = (mask) => MEALS.filter((m) => mask & m.bit).map((m) => m.short + (qtyOf(mask, m) > 1 ? '×2' : '')).join(' ');
+  function stripKeys(days) {
+    const keys = sortedKeys(days);
+    if (!keys.length) return [];
+    const a = parseKey(keys[0]);
+    const b = parseKey(keys[keys.length - 1]);
+    const span = Math.round((b - a) / 86400000) + 1;
+    return span > 62 ? keys : Array.from({ length: span }, (_, i) => keyOf(addDays(a, i)));
+  }
+
+  /* hora y folio */
+  function tzOffset(d) {
+    const off = -d.getTimezoneOffset();
+    const sign = off >= 0 ? '+' : '-';
+    const a = Math.abs(off);
+    return sign + pad(Math.floor(a / 60)) + ':' + pad(a % 60);
+  }
+  function isoLocal(d) {
+    return keyOf(d) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + tzOffset(d);
+  }
+  function makeFolio(d) {
+    return 'RC-' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '-' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()) + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  }
+  function fechaLarga(d) {
+    const s = DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+  async function sha256(text) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) { return null; }
+  }
+
+  /* almacenamiento local (solo borrador del navegador) */
+  function loadStore() {
+    const empty = { people: [], example: false };
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return empty;
+      const d = JSON.parse(raw);
+      if (!d || !Array.isArray(d.people)) return empty;
+      return {
+        people: d.people.filter((p) => p && typeof p.name === 'string').map((p) => ({
+          id: String(p.id || uid()), name: collapse(p.name), area: collapse(String(p.area || '')), days: cleanDays(p.days)
+        })),
+        example: !!d.example
+      };
+    } catch (e) { return empty; }
+  }
+  function saveStore(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* sin almacenamiento */ } }
+
+  /* ---------- Archivos del comprobante ---------- */
+  function buildCsv(r) {
+    const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+    const meta = [r.folio, r.iso, r.tzName, r.evento, r.responsable];
+    const dates = r.totals.byDay.map((b) => b.key);
+    const head = ['Folio', 'Fecha_hora_generacion', 'Zona_horaria', 'Evento_referencia', 'Responsable', 'No', 'Nombre', 'Area'];
+    dates.forEach((k) => MEALS.forEach((m) => head.push(k + '_' + m.label)));
+    head.push('Total_Dias', 'Total_Comidas', 'Total_Cenas', 'Total_Snacks', 'Total_Raciones');
+    const rows = [head];
+    r.people.forEach((p, i) => {
+      const t = personTotals(p.days);
+      const row = meta.concat([i + 1, p.name, p.area || '']);
+      dates.forEach((k) => MEALS.forEach((m) => row.push(qtyOf(p.days[k] || 0, m))));
+      rows.push(row.concat([t.dias, t.comida, t.cena, t.snack, t.raciones]));
+    });
+    const tot = meta.concat(['TOTAL', r.totals.people + ' personas', '']);
+    r.totals.byDay.forEach((b) => MEALS.forEach((m) => tot.push(b[m.key])));
+    rows.push(tot.concat([dates.length, r.totals.comida, r.totals.cena, r.totals.snack, r.totals.raciones]));
+    if (r.example) rows.push(['AVISO', 'DATOS DE EJEMPLO - SIN VALOR']);
+    if (r.hash) rows.push(['SHA-256', r.hash]);
+    return '﻿' + rows.map((x) => x.map(q).join(',')).join('\r\n');
+  }
+  function wrapText(text, w) {
+    const lines = [];
+    let cur = '';
+    text.split(' ').forEach((word) => {
+      if (!cur) cur = word;
+      else if ((cur + ' ' + word).length <= w) cur += ' ' + word;
+      else { lines.push(cur); cur = word; }
+      while (cur.length > w) { lines.push(cur.slice(0, w)); cur = cur.slice(w); }
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function buildTxt(r) {
+    const W = 44;
+    const hr = '-'.repeat(W);
+    const dh = '='.repeat(W);
+    const ctr = (s) => ' '.repeat(Math.max(0, Math.floor((W - s.length) / 2))) + s;
+    const num = (x) => String(x).padStart(4, ' ');
+    const o = [dh, ctr('ACUSE DE RECIBO'), ctr('ASIGNACIÓN DE ALIMENTOS'), dh];
+    if (r.example) o.push(ctr('** DATOS DE EJEMPLO - SIN VALOR **'), hr);
+    o.push('Folio : ' + r.folio, 'Fecha : ' + r.fechaLarga, 'Hora  : ' + r.hora, 'Zona  : ' + r.tzName + ' (UTC' + r.tzOff + ')');
+    if (r.evento) wrapText('Evento: ' + r.evento, W).forEach((l) => o.push(l));
+    wrapText('Responsable: ' + r.responsable, W).forEach((l) => o.push(l));
+    o.push('Días con comida: ' + r.totals.byDay.length);
+    if (r.rango) wrapText('Fechas: ' + r.rango, W).forEach((l) => o.push(l));
+    o.push(hr, 'TOTALES POR DÍA', hr, 'Fecha'.padEnd(W - 16) + ' COM CEN SNK TOT');
+    r.totals.byDay.forEach((b) => {
+      o.push(labelShort(b.key).padEnd(W - 16) + num(b.comida) + num(b.cena) + num(b.snack) + num(b.total));
+    });
+    o.push(hr,
+      'Personas       : ' + r.totals.people,
+      'Comidas        : ' + r.totals.comida,
+      'Cenas          : ' + r.totals.cena,
+      'Snacks         : ' + r.totals.snack,
+      'TOTAL RACIONES : ' + r.totals.raciones, hr,
+      'DETALLE POR PERSONA', 'COM = Comida, CEN = Cena, SNK = Snack', hr);
+    r.people.forEach((p, i) => {
+      wrapText((i + 1) + '. ' + p.name, W).forEach((l) => o.push(l));
+      if (p.area) wrapText('Área: ' + p.area, W - 3).forEach((l) => o.push('   ' + l));
+      runsOf(p.days).forEach((run) => {
+        wrapText(runLabel(run.from, run.to) + ': ' + mealsShort(run.mask), W - 3).forEach((l) => o.push('   ' + l));
+      });
+      o.push('');
+    });
+    o.push(hr);
+    wrapText(r.declaracion, W).forEach((l) => o.push(l));
+    o.push('', '', '_'.repeat(W), ctr(r.responsable), ctr('Nombre y firma del responsable'));
+    if (r.hash) { o.push(hr, 'Huella SHA-256:'); wrapText(r.hash, W).forEach((l) => o.push(l)); }
+    o.push(dh);
+    return o.join('\r\n');
+  }
+
+  /* ---------- Íconos ---------- */
+  const P = {
+    check: 'M5 12.5l4.5 4.5L19 7.5',
+    alert: ['M12 8v5', 'M12 16.5v.01', 'M10.3 3.9L2.6 17.2A2 2 0 004.3 20h15.4a2 2 0 001.7-2.8L13.7 3.9a2 2 0 00-3.4 0z'],
+    trash: ['M4 7h16', 'M10 11v6', 'M14 11v6', 'M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12', 'M9 7V4h6v3'],
+    search: ['M11 18a7 7 0 100-14 7 7 0 000 14z', 'M20 20l-4-4'],
+    back: ['M19 12H5', 'M11 18l-6-6 6-6'],
+    download: ['M12 4v11', 'M7 11l5 5 5-5', 'M5 20h14'],
+    copy: ['M9 9h10v11H9z', 'M5 15V4h10'],
+    plus: ['M12 5v14', 'M5 12h14'],
+    edit: ['M4 20h4L19 9l-4-4L4 16v4z', 'M13.5 6.5l4 4'],
+    receipt: ['M6 3h12v18l-3-2-3 2-3-2-3 2z', 'M9 8h6', 'M9 12h6'],
+    calendar: ['M5 6h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1z', 'M4 10h16', 'M8 4v4', 'M16 4v4'],
+    left: 'M14 6l-6 6 6 6',
+    right: 'M10 6l6 6-6 6',
+    down: 'M6 9l6 6 6-6',
+    x: ['M6 6l12 12', 'M18 6L6 18'],
+    undo: ['M3 7v6h6', 'M3.5 13a9 9 0 103-9'],
+    upload: ['M12 16V4', 'M7 9l5-5 5 5', 'M5 20h14'],
+    sheet: ['M6 3h9l4 4v14H6z', 'M14 3v5h5', 'M9 13h6', 'M9 17h6'],
+    user: ['M12 12a4 4 0 100-8 4 4 0 000 8z', 'M4 20a8 8 0 0116 0'],
+    briefcase: ['M4 8h16v11H4z', 'M9 8V6a1 1 0 011-1h4a1 1 0 011 1v2', 'M4 13h16'],
+    arrow: ['M5 12h14', 'M13 6l6 6-6 6']
+  };
+  function Icon({ d, size = 18, sw = 2, cls = '' }) {
+    return html`<svg className=${cls} width=${size} height=${size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth=${sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">${[].concat(d).map((p, i) => html`<path key=${i} d=${p} />`)}</svg>`;
+  }
+
+  /* ---------- Piezas de interfaz ---------- */
+  function Steps({ step }) {
+    const items = ['Registra', 'Revisa', 'Comprobante'];
+    return html`<ol className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+      ${items.map((t, i) => {
+        const n = i + 1;
+        const done = n < step;
+        const cur = n === step;
+        return html`<li key=${t} className=${'flex items-center gap-2 ' + (cur ? 'text-ink font-semibold' : 'text-mute')} aria-current=${cur ? 'step' : null}>
+          <span className=${'inline-grid place-items-center w-6 h-6 rounded-full text-xs font-semibold ' + (done ? 'bg-ok text-accent-ink' : cur ? 'bg-accent text-accent-ink' : 'bg-line text-mute')}>
+            ${done ? html`<${Icon} d=${P.check} size=${14} sw=${3} />` : n}
+          </span>
+          ${t}
+        </li>`;
+      })}
+    </ol>`;
+  }
+
+  function Counters({ t, scope }) {
+    const [open, setOpen] = useState(false);
+    const nd = t.byDay.length;
+    const Row = ({ label, sub, value, dot }) => html`<div className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-sm font-semibold"><span className=${'inline-block h-2.5 w-2.5 shrink-0 rounded-full ' + dot}></span>${label}</div>
+        <p className="mt-0.5 pl-[18px] text-xs text-mute">${sub}</p>
+      </div>
+      <span className="text-base font-semibold tabular">${value}</span>
+    </div>`;
+    return html`<section aria-label="Resumen">
+      <h2 className="mb-3 font-display text-lg font-semibold">Resumen <span className="ml-1 text-sm font-normal text-mute">· ${scope}</span></h2>
+      <div className="rounded-2xl border border-line bg-surface p-5 sm:p-6">
+        <div className="grid gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] sm:gap-8">
+          <div>
+            <p className="text-xs text-mute">Raciones totales</p>
+            <p className="mt-1 font-display text-5xl font-bold tabular">${t.raciones}</p>
+            <p className="mt-1 text-sm text-mute">para ${t.people} ${plural(t.people, 'persona', 'personas')} · ${nd} ${plural(nd, 'día', 'días')}</p>
+          </div>
+          <div className="divide-y divide-line border-t border-line pt-4 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+            <${Row} label="Personas:" sub="registradas" value=${t.people} dot="bg-rosa" />
+            <${Row} label="Comidas:" sub="en todos los días" value=${t.comida} dot=${MEAL_STYLE.comida.dot} />
+            <${Row} label="Cenas:" sub="en todos los días" value=${t.cena} dot=${MEAL_STYLE.cena.dot} />
+            <${Row} label="Snacks:" sub="en todos los días" value=${t.snack} dot=${MEAL_STYLE.snack.dot} />
+          </div>
+        </div>
+        <div className="mt-5 border-t border-line pt-4">
+          <button type="button" aria-expanded=${open} onClick=${() => setOpen((o) => !o)} className="focus-ring rounded-md py-1 text-sm font-semibold text-accent">${open ? 'Ocultar' : 'Ver'} totales por día</button>
+          ${open ? (nd === 0
+            ? html`<p className="mt-3 text-sm text-mute">Aún no hay días con comidas. Agrega personas para ver los totales de cada día.</p>`
+            : html`<div className="mt-3 overflow-x-auto">
+            <table className="w-full text-left text-sm tabular">
+              <thead className="text-xs font-semibold uppercase tracking-wider text-mute">
+                <tr>
+                  <th scope="col" className="py-2 pr-3">Fecha</th>
+                  ${MEALS.map((m) => html`<th key=${m.key} scope="col" className="px-2 py-2 text-right">${m.plural}</th>`)}
+                  <th scope="col" className="py-2 pl-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${t.byDay.map((b) => html`<tr key=${b.key} className="border-t border-line">
+                  <th scope="row" className="py-2 pr-3 font-medium">${labelShort(b.key)}</th>
+                  ${MEALS.map((m) => html`<td key=${m.key} className="px-2 py-2 text-right">${b[m.key]}</td>`)}
+                  <td className="py-2 pl-2 text-right font-semibold">${b.total}</td>
+                </tr>`)}
+                <tr className="border-t-2 border-line font-semibold">
+                  <th scope="row" className="py-2 pr-3">Total</th>
+                  ${MEALS.map((m) => html`<td key=${m.key} className="px-2 py-2 text-right">${t[m.key]}</td>`)}
+                  <td className="py-2 pl-2 text-right text-accent">${t.raciones}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>`) : null}
+        </div>
+      </div>
+    </section>`;
+  }
+
+  function Alert({ title, children }) {
+    return html`<div role="alert" className="flex gap-3 rounded-xl border-2 border-danger bg-danger-bg px-4 py-3 text-danger">
+      <${Icon} d=${P.alert} size=${22} cls="mt-0.5 shrink-0" />
+      <div className="min-w-0">
+        <p className="font-bold text-base">${title}</p>
+        ${children ? html`<p className="mt-0.5 text-sm break-words">${children}</p>` : null}
+      </div>
+    </div>`;
+  }
+
+  function BrushChip({ meal, on, onClick }) {
+    const s = MEAL_STYLE[meal.key];
+    return html`<button type="button" aria-pressed=${on} onClick=${onClick}
+      className=${'focus-ring inline-flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-semibold ' + (on ? s.on + ' text-ink' : 'border-line bg-surface text-mute')}>
+      <span className=${'grid h-4 w-4 place-items-center rounded border-2 ' + (on ? s.box : 'border-mute bg-surface')}>${on ? html`<${Icon} d=${P.check} size=${12} sw=${4} />` : null}</span>${meal.label}
+    </button>`;
+  }
+
+  function overlayStyle() {
+    return { padding: 'max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))' };
+  }
+
+  /* Menú con calendario: elige los días y ajusta las comidas de cada día */
+  function DayMenu({ value, onApply, onClose, idp, filter, people, dataDays }) {
+    const [work, setWork] = useState(() => cleanDays(value));
+    const [tpl, setTpl] = useState(ALL);
+    const [mode, setMode] = useState('single');
+    const [rangeStart, setRangeStart] = useState(null);
+    const [hint, setHint] = useState('');
+    const first = sortedKeys(value)[0];
+    const startDate = (first && parseKey(first)) || new Date();
+    const [view, setView] = useState({ y: startDate.getFullYear(), m: startDate.getMonth() });
+    useEffect(() => {
+      const h = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', h);
+      return () => window.removeEventListener('keydown', h);
+    }, [onClose]);
+
+    const todayKey = keyOf(new Date());
+    const keys = sortedKeys(work);
+    const pt = personTotals(work);
+    const fl = !!filter;
+    const dayStat = (ks) => {
+      const sub = (people || []).map((p) => { const d = {}; ks.forEach((k) => { if (p.days[k]) d[k] = p.days[k]; }); return { days: d }; }).filter((p) => Object.keys(p.days).length);
+      const t = totalsOf(sub);
+      return t.people + ' ' + plural(t.people, 'persona', 'personas') + ' · ' + t.raciones + ' ' + plural(t.raciones, 'ración', 'raciones');
+    };
+    const cells = monthCells(view.y, view.m);
+    const dirty = JSON.stringify(work) !== JSON.stringify(cleanDays(value));
+    const cy = new Date().getFullYear();
+    const years = [];
+    for (let y = Math.min(view.y, cy - 2); y <= Math.max(view.y, cy + 5); y++) years.push(y);
+
+    const needTpl = () => {
+      if (!tpl) { setHint('Elige al menos una comida antes de marcar días.'); return true; }
+      setHint('');
+      return false;
+    };
+    function clickDay(key) {
+      if (mode === 'range') {
+        if (!rangeStart) { if (needTpl()) return; setRangeStart(key); return; }
+        const a = rangeStart < key ? rangeStart : key;
+        const b = rangeStart < key ? key : rangeStart;
+        const da = parseKey(a);
+        const db = parseKey(b);
+        if (Math.round((db - da) / 86400000) > 366) { setHint('Elige un rango de máximo un año.'); setRangeStart(null); return; }
+        setWork((w) => {
+          const n = { ...w };
+          for (let d = da; d <= db; d = addDays(d, 1)) { const k = keyOf(d); n[k] = n[k] || tpl; }
+          return n;
+        });
+        setRangeStart(null);
+        setHint('');
+        return;
+      }
+      if (work[key]) { setWork((w) => { const n = { ...w }; delete n[key]; return n; }); return; }
+      if (needTpl()) return;
+      setWork((w) => ({ ...w, [key]: tpl }));
+    }
+    function preset(id) {
+      if (needTpl()) return;
+      const t = new Date();
+      const today = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+      const monday = addDays(today, -((today.getDay() + 6) % 7));
+      let list = [];
+      if (id === 'hoy') list = [today];
+      else if (id === 'manana') list = [addDays(today, 1)];
+      else if (id === 'semana') list = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+      else if (id === 'semanaSig') list = Array.from({ length: 7 }, (_, i) => addDays(monday, 7 + i));
+      else {
+        const off = id === 'mes' ? 0 : 1;
+        const y = today.getFullYear();
+        const m = today.getMonth() + off;
+        const dim = new Date(y, m + 1, 0).getDate();
+        list = Array.from({ length: dim }, (_, i) => new Date(y, m, 1 + i));
+      }
+      setWork((w) => { const n = { ...w }; list.forEach((d) => { const k = keyOf(d); n[k] = n[k] || tpl; }); return n; });
+      setView({ y: list[0].getFullYear(), m: list[0].getMonth() });
+    }
+    const toggleMeal = (key, bit) => setWork((w) => {
+      const n = { ...w };
+      let v = (n[key] || 0) ^ bit;
+      if (!(v & bit)) v &= ~(bit << 3);
+      if (v) n[key] = v; else delete n[key];
+      return n;
+    });
+    const removeDay = (key) => setWork((w) => { const n = { ...w }; delete n[key]; return n; });
+    const go = (delta) => setView((v) => { const d = new Date(v.y, v.m + delta, 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+    const restore = () => { setWork(cleanDays(value)); setRangeStart(null); setHint(''); };
+    const apply = () => { onApply(cleanDays(work)); onClose(); };
+
+    const presets = [['hoy', 'Hoy'], ['manana', 'Mañana'], ['semana', 'Semana actual'], ['semanaSig', 'Semana siguiente'], ['mes', 'Mes actual'], ['mesSig', 'Mes siguiente']];
+    const sel = 'focus-ring rounded-md border border-line bg-surface px-2 py-1.5 text-sm font-semibold text-ink';
+    const arrow = 'focus-ring grid h-8 w-8 place-items-center rounded-md bg-subtle text-ink hover:text-accent';
+    const seg = (key, label) => html`<button type="button" aria-pressed=${mode === key} onClick=${() => { setMode(key); setRangeStart(null); setHint(''); }}
+      className=${'focus-ring px-3 py-1.5 text-sm font-medium ' + (mode === key ? 'bg-accent-soft text-accent' : 'bg-surface text-mute hover:text-ink')}>${label}</button>`;
+
+    return html`<div className="fixed inset-0 z-[60] grid place-items-center bg-black/60" style=${overlayStyle()} onClick=${() => { if (!dirty) onClose(); }}>
+      <div role="dialog" aria-modal="true" aria-labelledby=${idp + '-titulo'} onClick=${(e) => e.stopPropagation()}
+        className="flex max-h-full w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="flex items-start justify-between gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
+          <div className="min-w-0">
+            <h2 id=${idp + '-titulo'} className="flex items-center gap-2 font-display text-2xl font-bold">${fl ? 'Filtrar por día' : 'Días y comidas'} <${Icon} d=${P.calendar} size=${22} cls="text-accent" /></h2>
+            <p className="mt-1 text-sm text-mute">${fl ? 'Elige uno o varios días para ver solo las personas y raciones de esos días. Los días con un punto ya tienen datos.' : 'Selecciona los días en el calendario y ajusta las comidas de cada día.'}</p>
+          </div>
+          <button type="button" onClick=${onClose} aria-label="Cerrar sin aplicar" className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-md text-mute hover:text-ink"><${Icon} d=${P.x} size=${20} /></button>
+        </div>
+
+        <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto px-5 pb-4 sm:px-6 md:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] md:gap-6">
+          <div className="order-2 flex min-w-0 flex-col gap-3 md:order-1">
+            <div className="flex items-center gap-3 rounded-xl border-2 border-accent bg-accent-soft px-4 py-3 text-accent">
+              <${Icon} d=${P.calendar} size=${20} cls="shrink-0" />
+              <div className="min-w-0">
+                <p className="font-semibold">${fl ? (pt.dias ? pt.dias + ' ' + plural(pt.dias, 'día seleccionado', 'días seleccionados') : 'Todos los días') : pt.dias + ' ' + plural(pt.dias, 'día asignado', 'días asignados')}</p>
+                <p className="text-xs">${fl ? dayStat(pt.dias ? keys : Object.keys(dataDays || {})) : pt.raciones + ' ' + plural(pt.raciones, 'ración', 'raciones')}</p>
+              </div>
+            </div>
+            ${keys.length === 0
+              ? html`<p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-sm text-mute">${fl ? 'Sin filtro: se muestran todos los días. Toca un día para ver solo ese día.' : 'Todavía no hay días. Toca los días en el calendario.'}</p>`
+              : html`<ul className="flex max-h-[22rem] flex-col gap-2 overflow-y-auto md:max-h-[26rem]">
+                  ${keys.map((k) => html`<li key=${k} className="rounded-xl border border-line px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">${labelFull(k)}</span>
+                      <button type="button" onClick=${() => removeDay(k)} aria-label=${'Quitar ' + labelFull(k)} className="focus-ring grid h-7 w-7 place-items-center rounded-md text-mute hover:text-danger"><${Icon} d=${P.x} size=${16} /></button>
+                    </div>
+                    ${fl ? html`<p className="mt-0.5 text-xs text-mute tabular">${dayStat([k])}</p>` : null}
+                    <div className=${fl ? 'hidden' : 'mt-1.5 grid grid-cols-3 gap-1.5'}>
+                      ${MEALS.map((m) => {
+                        const on = !!(work[k] & m.bit);
+                        return html`<button key=${m.key} type="button" aria-pressed=${on} onClick=${() => toggleMeal(k, m.bit)}
+                          className=${'focus-ring h-8 rounded-md border-2 text-xs font-semibold ' + (on ? MEAL_STYLE[m.key].box : 'border-line bg-surface text-mute')}>${m.label}</button>`;
+                      })}
+                    </div>
+                  </li>`)}
+                </ul>`}
+          </div>
+
+          <div className="order-1 flex min-w-0 flex-col gap-4 md:order-2 md:border-l md:border-line md:pl-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+              ${presets.map(([id, label]) => html`<button key=${id} type="button" onClick=${() => preset(id)} className="focus-ring rounded-md px-2 py-1.5 text-left text-sm font-semibold hover:bg-subtle hover:text-accent">${label}</button>`)}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div role="group" aria-label="Forma de elegir días" className="inline-flex overflow-hidden rounded-lg border border-line">${seg('single', 'Días sueltos')}${seg('range', 'Rango')}</div>
+              <button type="button" onClick=${() => { setWork({}); setRangeStart(null); setHint(''); }} className="focus-ring rounded-md px-2 py-1.5 text-sm font-medium text-mute hover:text-danger">Limpiar todo</button>
+            </div>
+
+            <div className="rounded-xl border border-line p-3 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick=${() => go(-1)} aria-label="Mes anterior" className=${arrow}><${Icon} d=${P.left} size=${16} sw=${2.5} /></button>
+                <div className="flex items-center gap-2">
+                  <label htmlFor=${idp + '-mes'} className="sr-only">Mes</label>
+                  <select id=${idp + '-mes'} value=${view.m} onChange=${(e) => setView((v) => ({ ...v, m: +e.target.value }))} className=${sel}>${MESES.map((m, i) => html`<option key=${i} value=${i}>${m}</option>`)}</select>
+                  <label htmlFor=${idp + '-anio'} className="sr-only">Año</label>
+                  <select id=${idp + '-anio'} value=${view.y} onChange=${(e) => setView((v) => ({ ...v, y: +e.target.value }))} className=${sel}>${years.map((y) => html`<option key=${y} value=${y}>${y}</option>`)}</select>
+                </div>
+                <button type="button" onClick=${() => go(1)} aria-label="Mes siguiente" className=${arrow}><${Icon} d=${P.right} size=${16} sw=${2.5} /></button>
+              </div>
+              <div className="mt-3 grid grid-cols-7 text-center text-xs text-mute">${SEMANA.map((d) => html`<span key=${d} className="py-1">${d}</span>`)}</div>
+              <div className="grid grid-cols-7 gap-y-1 text-center">
+                ${cells.map((c) => {
+                  const on = !!work[c.key];
+                  const pending = rangeStart === c.key;
+                  const dot = dataDays && dataDays[c.key] ? html`<span className=${'absolute bottom-[3px] h-1 w-1 rounded-full ' + (on ? 'bg-accent-ink' : 'bg-accent')}></span>` : null;
+                  return html`<button key=${c.key} type="button" aria-pressed=${on} aria-label=${labelFull(c.key) + (on ? (fl ? ', seleccionado' : ', con comidas') : '')} onClick=${() => clickDay(c.key)}
+                    className=${'focus-ring relative mx-auto grid h-9 w-9 place-items-center rounded-full text-sm tabular ' + (on ? 'bg-accent font-semibold text-accent-ink' : (pending ? 'bg-accent-soft font-semibold text-accent ring-2 ring-accent' : 'hover:bg-subtle')) + (c.out && !on ? ' opacity-50' : '') + (c.key === todayKey && !on && !pending ? ' ring-1 ring-accent' : '')}>${c.day}${dot}</button>`;
+                })}
+              </div>
+            </div>
+            <p role="status" aria-live="polite" className=${'text-sm ' + (hint ? 'font-medium text-danger' : 'text-mute')}>
+              ${hint || (mode === 'range' ? (rangeStart ? 'Inicio: ' + labelFull(rangeStart) + '. Toca el último día del rango.' : 'Toca el primer día del rango y después el último.') : 'Toca un día para marcarlo. Tócalo otra vez para quitarlo.')}
+            </p>
+
+            <div className=${fl ? 'hidden' : ''}>
+              <p className="mb-2 text-sm font-semibold">Comidas al marcar un día</p>
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Comidas que se asignan al marcar un día">
+                ${MEALS.map((m) => html`<${BrushChip} key=${m.key} meal=${m} on=${!!(tpl & m.bit)} onClick=${() => { setTpl((x) => x ^ m.bit); setHint(''); }} />`)}
+              </div>
+              <p className="mt-2 text-xs text-mute">Después puedes ajustar las comidas de cada día en la lista.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-2 border-t border-line p-4 sm:flex-row sm:justify-end sm:px-6">
+          <button type="button" onClick=${restore} className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg border border-line px-5 py-3 text-base font-medium"><${Icon} d=${P.undo} size=${18} /> Restaurar</button>
+          <button type="button" onClick=${apply} className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 text-base font-semibold text-accent-ink"><${Icon} d=${P.check} size=${18} sw=${3} /> Aplicar</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* ---------- Importar desde Excel ---------- */
+  const HEADS = { nombre: 'name', nombrecompleto: 'name', beneficiario: 'name', area: 'area', comidas: 'comida', comida: 'comida', cenas: 'cena', cena: 'cena', snacks: 'snack', snack: 'snack' };
+  const headKey = (v) => HEADS[normalize(String(v == null ? '' : v)).replace(/[^a-z]/g, '')];
+  function parseCount(v) {
+    if (v == null || String(v).trim() === '') return { n: 0 };
+    const x = Number(String(v).trim().replace(',', '.'));
+    if (!isFinite(x) || x < 0 || Math.floor(x) !== x || x > 366) return { err: true };
+    return { n: x };
+  }
+  function parseSheetRows(rows, existing) {
+    let col = null;
+    let first = 0;
+    for (let i = 0; i < Math.min(rows.length, 6) && !col; i++) {
+      const m = {};
+      (rows[i] || []).forEach((cell, j) => { const k = headKey(cell); if (k && m[k] === undefined) m[k] = j; });
+      if (m.name !== undefined && Object.keys(m).length >= 2) { col = m; first = i + 1; }
+    }
+    if (!col) col = { name: 0, area: 1, comida: 2, cena: 3, snack: 4 };
+    const seen = new Map();
+    const items = [];
+    for (let i = first; i < rows.length; i++) {
+      const r = rows[i] || [];
+      if (r.every((c) => String(c == null ? '' : c).trim() === '')) continue;
+      const cell = (k) => (col[k] === undefined ? '' : r[col[k]]);
+      const name = collapse(String(cell('name') == null ? '' : cell('name')));
+      const area = collapse(String(cell('area') == null ? '' : cell('area')));
+      const cs = { comida: parseCount(cell('comida')), cena: parseCount(cell('cena')), snack: parseCount(cell('snack')) };
+      let error = null;
+      if (!name) error = 'Falta el nombre';
+      else if (cs.comida.err || cs.cena.err || cs.snack.err) error = 'Cantidad no válida (usa números enteros)';
+      else if (!area) error = 'Falta el área';
+      else if (cs.comida.n + cs.cena.n + cs.snack.n === 0) error = 'No tiene ninguna comida';
+      else if (seen.has(normalize(name))) error = 'Repetido en la fila ' + seen.get(normalize(name));
+      if (name && !seen.has(normalize(name))) seen.set(normalize(name), i + 1);
+      items.push({ row: i + 1, name, area, comida: cs.comida.n || 0, cena: cs.cena.n || 0, snack: cs.snack.n || 0, error, update: !error && existing.has(normalize(name)) });
+    }
+    return items;
+  }
+  function daysFromCounts(startKey, c, e, s) {
+    const start = parseKey(startKey);
+    const days = {};
+    [[c, 1], [e, 2], [s, 4]].forEach((p) => {
+      for (let i = 0; i < p[0]; i++) { const k = keyOf(addDays(start, i)); days[k] = (days[k] || 0) | p[1]; }
+    });
+    return days;
+  }
+  function templateBuffer() {
+    const X = window.XLSX;
+    const ws = X.utils.aoa_to_sheet([
+      ['Nombre', 'Área', 'Comidas', 'Cenas', 'Snacks'],
+      ['Ejemplo Uno Apellido (borra esta fila)', 'Jugadores', 9, 9, 9],
+      ['Ejemplo Dos Apellido (borra esta fila)', 'Árbitros', 6, 6, 0]
+    ]);
+    ws['!cols'] = [{ wch: 38 }, { wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 10 }];
+    const wb = X.utils.book_new();
+    X.utils.book_append_sheet(wb, ws, 'Voluntarios');
+    return X.write(wb, { type: 'array', bookType: 'xlsx' });
+  }
+
+  /* Formato de requisición: una hoja por departamento, fechas en columnas con Comida / Cena (y Snack) por día */
+  const GRID_TYPES = { comida: 'comida', comidas: 'comida', cena: 'cena', cenas: 'cena', snack: 'snack', snacks: 'snack' };
+  const lab = (v) => normalize(String(v == null ? '' : v)).replace(/[^a-z]/g, '');
+  const isSerial = (v) => typeof v === 'number' && v > 40000 && v < 80000;
+  const serialKey = (n) => {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.floor(n) * 86400000);
+    return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+  };
+  function cellQty(v) {
+    if (v == null || v === '') return { n: 0 };
+    if (typeof v === 'number') return v === 0 ? { n: 0 } : (Number.isInteger(v) && v >= 1 && v <= 2) ? { n: v } : { bad: 'num' };
+    const s = String(v).trim().toLowerCase();
+    if (s === '' || s === '0') return { n: 0 };
+    if (s === '1' || s === '2') return { n: +s };
+    if (/^(x|✓|✔|si|sí|ok)$/.test(s)) return { n: 1, note: true };
+    return { bad: 'text' };
+  }
+  function gridSheet(rows, sheet) {
+    let hi = -1;
+    let dateCols = [];
+    for (let i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) {
+      const cols = [];
+      (rows[i] || []).forEach((v, j) => { if (isSerial(v)) cols.push(j); });
+      if (cols.length >= 2) { hi = i; dateCols = cols; }
+    }
+    if (hi < 0) return null;
+    const head = rows[hi];
+    const sub = rows[hi + 1] || [];
+    let nameC = -1;
+    let areaC = -1;
+    head.forEach((v, j) => {
+      if (j >= dateCols[0]) return;
+      const l = lab(v);
+      if (l === 'nombre' || l === 'nombrecompleto') { if (nameC < 0) nameC = j; else if (areaC < 0) areaC = j; }
+      else if ((l === 'area' || l === 'departamento') && areaC < 0) areaC = j;
+    });
+    if (nameC < 0) nameC = 1;
+    const groups = dateCols.map((j, gi) => {
+      let end = gi + 1 < dateCols.length ? dateCols[gi + 1] : head.length;
+      for (let c = j + 1; c < end; c++) { const v = head[c]; if (v !== '' && v != null && !isSerial(v)) { end = c; break; } }
+      const cols = {};
+      for (let c = j; c < end; c++) { const t = GRID_TYPES[lab(sub[c])]; if (t && cols[t] === undefined) cols[t] = c; }
+      if (!Object.keys(cols).length) { cols.comida = j; if (j + 1 < end) cols.cena = j + 1; }
+      return { key: serialKey(head[j]), cols };
+    });
+    const items = [];
+    for (let i = hi + 2; i < rows.length; i++) {
+      const r = rows[i] || [];
+      const raw = r[nameC];
+      const name = collapse(String(raw == null ? '' : raw));
+      if (!name || /^total/i.test(name) || /^\d+$/.test(name) || /^total/i.test(String(r[0] == null ? '' : r[0]))) continue;
+      const colArea = areaC >= 0 ? collapse(String(r[areaC] == null ? '' : r[areaC])) : '';
+      const days = {};
+      const warns = [];
+      const xs = [];
+      let error = null;
+      groups.forEach((gr) => {
+        let mask = 0;
+        Object.keys(gr.cols).forEach((t) => {
+          const m = MEALS.find((x) => x.key === t);
+          const val = r[gr.cols[t]];
+          const q = cellQty(val);
+          const where = m.label.toLowerCase() + ' del ' + labelShort(gr.key);
+          if (q.bad === 'num') { if (!error) error = 'Cantidad no válida (' + val + ') en ' + where; }
+          else if (q.bad === 'text') warns.push('Texto «' + collapse(String(val)) + '» en ' + where + ': no se contó');
+          else if (q.n) { mask |= m.bit; if (q.n === 2) mask |= m.bit << 3; if (q.note) xs.push(where); }
+        });
+        if (mask) days[gr.key] = mask;
+      });
+      if (xs.length && !error) error = 'Tiene una «x» en ' + xs.slice(0, 2).join(', ') + (xs.length > 2 ? ' y ' + (xs.length - 2) + ' más' : '') + ': se omite a la persona';
+      if (!error && !Object.keys(days).length) error = 'No tiene ninguna comida';
+      items.push({ sheet: collapse(sheet), row: i + 1, name, colArea, days, warns, error, dup: null, update: false });
+    }
+    const keys = groups.map((g) => g.key).sort();
+    return { sheet: collapse(sheet), items, from: keys[0], to: keys[keys.length - 1] };
+  }
+  function parseGridWorkbook(X, wb, existing) {
+    const sheets = [];
+    const empty = [];
+    wb.SheetNames.forEach((nm) => {
+      if (/^resumen$/i.test(collapse(nm))) return;
+      const ws = wb.Sheets[nm];
+      if (!ws || !ws['!ref']) { empty.push(collapse(nm)); return; }
+      const dec = X.utils.decode_range(ws['!ref']);
+      ws['!ref'] = X.utils.encode_range({ s: { r: 0, c: 0 }, e: dec.e });
+      const rows = X.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true, blankrows: true });
+      const g = gridSheet(rows, nm);
+      if (g) sheets.push(g); else empty.push(collapse(nm));
+    });
+    if (!sheets.length) return null;
+    const items = [];
+    sheets.forEach((s) => s.items.forEach((i) => items.push(i)));
+    const seen = new Map();
+    items.forEach((i) => {
+      if (i.error) return;
+      const k = normalize(i.name);
+      if (seen.has(k)) { const f = seen.get(k); i.dup = 'Repetido: ya está en «' + f.sheet + '», fila ' + f.row + ' (se omite)'; }
+      else { seen.set(k, i); i.update = existing.has(k); }
+    });
+    return { items, sheets, empty };
+  }
+
+  /* ---------- Plantilla de requisición (Excel con fechas ya puestas, solo números 1-2 y totales bloqueados) ---------- */
+  const colName = (n) => { let s = ''; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const toSerial = (d) => Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1899, 11, 30)) / 86400000);
+  function requisicionFiles(o) {
+    const start = parseKey(o.from);
+    const end = parseKey(o.to);
+    const days = Math.round((end - start) / 86400000) + 1;
+    const ROWS = 100;
+    const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+    const RN = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const first = 6;
+    const dayCols = Array.from({ length: days }, (_, i) => first + i * 3);
+    const lastDay = first + days * 3 - 1;
+    const tC = lastDay + 1;
+    const rN = 7 + ROWS;
+    const r1 = rN + 1;
+    const r2 = rN + 2;
+    const L = colName;
+    const str = (ref, s, t) => '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(t) + '</t></is></c>';
+    const blank = (ref, s) => '<c r="' + ref + '" s="' + s + '"/>';
+    const num = (ref, s, v) => '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
+    const fml = (ref, s, f) => '<c r="' + ref + '" s="' + s + '"><f>' + f + '</f><v>0</v></c>';
+    const val = (ref, s, t) => (t ? str(ref, s, t) : blank(ref, s));
+    const merges = [];
+    let rows = '';
+    rows += '<row r="1" ht="24" customHeight="1">' + str('B1', 1, 'REQUISICIÓN DE COMIDAS') + '</row>';
+    [['Torneo', o.torneo], ['Departamento', o.dept], ['Nombre del Responsable', o.resp]].forEach((x, i) => {
+      const r = 2 + i;
+      rows += '<row r="' + r + '">' + str('B' + r, 2, x[0]) + val('C' + r, 3, x[1]) + blank('D' + r, 3) + blank('E' + r, 3) + '</row>';
+      merges.push('C' + r + ':E' + r);
+    });
+    let r6 = '';
+    let r7 = '';
+    ['#', 'Nombre', 'Area', 'Correo', 'Telefono'].forEach((t, i) => {
+      r6 += str(L(i + 1) + '6', 4, t);
+      r7 += blank(L(i + 1) + '7', 4);
+      merges.push(L(i + 1) + '6:' + L(i + 1) + '7');
+    });
+    dayCols.forEach((c, i) => {
+      const sd = i % 2 ? 7 : 6;
+      const ss = i % 2 ? 9 : 8;
+      r6 += num(L(c) + '6', sd, toSerial(addDays(start, i))) + blank(L(c + 1) + '6', sd) + blank(L(c + 2) + '6', sd);
+      r7 += str(L(c) + '7', ss, 'Comida') + str(L(c + 1) + '7', ss, 'Cena') + str(L(c + 2) + '7', ss, 'Snack');
+      merges.push(L(c) + '6:' + L(c + 2) + '6');
+    });
+    ['Comidas', 'Cenas', 'Snacks', 'TOTAL'].forEach((t, k) => {
+      r6 += str(L(tC + k) + '6', 4, t);
+      r7 += blank(L(tC + k) + '7', 4);
+      merges.push(L(tC + k) + '6:' + L(tC + k) + '7');
+    });
+    rows += '<row r="6" ht="22" customHeight="1">' + r6 + '</row><row r="7">' + r7 + '</row>';
+    for (let r = 8; r <= rN; r++) {
+      let x = num('A' + r, 12, r - 7) + blank('B' + r, 11) + blank('C' + r, 11) + blank('D' + r, 11) + blank('E' + r, 11);
+      dayCols.forEach((c) => { x += blank(L(c) + r, 10) + blank(L(c + 1) + r, 10) + blank(L(c + 2) + r, 10); });
+      [0, 1, 2].forEach((k) => { x += fml(L(tC + k) + r, 13, 'SUM(' + dayCols.map((c) => L(c + k) + r).join(',') + ')'); });
+      x += fml(L(tC + 3) + r, 13, 'SUM(' + L(tC) + r + ':' + L(tC + 2) + r + ')');
+      rows += '<row r="' + r + '">' + x + '</row>';
+    }
+    let t1 = str('A' + r1, 14, 'TOTAL POR ALIMENTO') + blank('B' + r1, 14) + blank('C' + r1, 14) + blank('D' + r1, 14) + blank('E' + r1, 14);
+    for (let c = first; c <= tC + 3; c++) t1 += fml(L(c) + r1, 13, 'SUM(' + L(c) + '8:' + L(c) + rN + ')');
+    rows += '<row r="' + r1 + '">' + t1 + '</row>';
+    merges.push('A' + r1 + ':E' + r1);
+    let t2 = str('A' + r2, 14, 'TOTAL POR DÍA') + blank('B' + r2, 14) + blank('C' + r2, 14) + blank('D' + r2, 14) + blank('E' + r2, 14);
+    dayCols.forEach((c) => {
+      t2 += fml(L(c) + r2, 13, 'SUM(' + L(c) + r1 + ':' + L(c + 2) + r1 + ')') + blank(L(c + 1) + r2, 13) + blank(L(c + 2) + r2, 13);
+      merges.push(L(c) + r2 + ':' + L(c + 2) + r2);
+    });
+    t2 += fml(L(tC + 3) + r2, 13, 'SUM(' + L(tC) + r1 + ':' + L(tC + 2) + r1 + ')');
+    rows += '<row r="' + r2 + '">' + t2 + '</row>';
+    merges.push('A' + r2 + ':E' + r2);
+
+    const sheetName = collapse(o.dept || '').replace(/[\[\]:*?\/\\]/g, '').slice(0, 31) || 'Departamento';
+    const files = {};
+    files['[Content_Types].xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>';
+    files['_rels/.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    files['xl/workbook.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="' + NS + '" xmlns:r="' + RN + '"><bookViews><workbookView/></bookViews><sheets><sheet name="' + xmlEsc(sheetName) + '" sheetId="1" r:id="rId2"/></sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>';
+    files['xl/_rels/workbook.xml.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>';
+    const al = (h2) => '<alignment horizontal="' + h2 + '" vertical="center" wrapText="1"/>';
+    const xf = (nf, font, fill, border, h2, unlocked) => '<xf numFmtId="' + nf + '" fontId="' + font + '" fillId="' + fill + '" borderId="' + border + '" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1">' + al(h2) + '<protection locked="' + (unlocked ? 0 : 1) + '"/></xf>';
+    files['xl/styles.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' + NS + '"><numFmts count="1"><numFmt numFmtId="165" formatCode="ddd\\ dd/mm"/></numFmts>' +
+      '<fonts count="3"><font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font><font><b/><sz val="16"/><color rgb="FF000000"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font></fonts>' +
+      '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFDE8F1"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+      '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFBDBDC4"/></left><right style="thin"><color rgb="FFBDBDC4"/></right><top style="thin"><color rgb="FFBDBDC4"/></top><bottom style="thin"><color rgb="FFBDBDC4"/></bottom><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="15">' +
+      xf(0, 0, 0, 0, 'left', false) + xf(0, 1, 0, 0, 'left', false) + xf(0, 2, 0, 0, 'left', false) + xf(0, 0, 0, 1, 'left', true) +
+      xf(0, 2, 2, 1, 'center', false) + xf(0, 2, 3, 1, 'center', false) + xf(165, 2, 2, 1, 'center', false) + xf(165, 2, 3, 1, 'center', false) +
+      xf(0, 2, 2, 1, 'center', false) + xf(0, 2, 3, 1, 'center', false) + xf(0, 0, 0, 1, 'center', true) + xf(0, 0, 0, 1, 'left', true) +
+      xf(0, 0, 0, 1, 'center', false) + xf(0, 2, 2, 1, 'center', false) + xf(0, 2, 2, 1, 'left', false) +
+      '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    const widths = '<col min="1" max="1" width="5" customWidth="1"/><col min="2" max="2" width="38" customWidth="1"/><col min="3" max="3" width="22" customWidth="1"/><col min="4" max="4" width="24" customWidth="1"/><col min="5" max="5" width="16" customWidth="1"/><col min="' + first + '" max="' + lastDay + '" width="9" customWidth="1"/><col min="' + tC + '" max="' + (tC + 3) + '" width="11" customWidth="1"/>';
+    files['xl/worksheets/sheet1.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="' + NS + '" xmlns:r="' + RN + '"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:' + L(tC + 3) + r2 + '"/>' +
+      '<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="2" ySplit="7" topLeftCell="C8" activePane="bottomRight" state="frozen"/><selection pane="bottomRight" activeCell="B8" sqref="B8"/></sheetView></sheetViews>' +
+      '<sheetFormatPr defaultRowHeight="18"/><cols>' + widths + '</cols><sheetData>' + rows + '</sheetData>' +
+      '<sheetProtection sheet="1" objects="1" scenarios="1" formatColumns="0" formatRows="0"/>' +
+      '<mergeCells count="' + merges.length + '">' + merges.map((m) => '<mergeCell ref="' + m + '"/>').join('') + '</mergeCells>' +
+      '<dataValidations count="1"><dataValidation type="whole" operator="between" allowBlank="1" showInputMessage="1" showErrorMessage="1" errorStyle="stop" errorTitle="Dato no válido" error="Escribe solo 1 (o 2 si le tocan dos). Déjalo vacío si no le toca." promptTitle="Cantidad" prompt="Escribe 1 si le toca. Déjalo vacío si no." sqref="' + L(first) + '8:' + L(lastDay) + rN + '"><formula1>0</formula1><formula2>2</formula2></dataValidation></dataValidations>' +
+      '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+    return files;
+  }
+  async function requisicionBuffer(o) {
+    const zip = new window.JSZip();
+    const files = requisicionFiles(o);
+    Object.keys(files).forEach((k) => zip.file(k, files[k]));
+    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+  }
+
+  function ImportModal({ byNorm, dl, hasExample, initialStart, onImport, onClose }) {
+    const [start, setStart] = useState(initialStart || keyOf(new Date()));
+    const [res, setRes] = useState(null);
+    const [msg, setMsg] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [areaSrc, setAreaSrc] = useState('sheet');
+    const [tplOpen, setTplOpen] = useState(false);
+    const [tplFrom, setTplFrom] = useState(initialStart || keyOf(new Date()));
+    const [tplTo, setTplTo] = useState(() => keyOf(addDays(parseKey(initialStart) || new Date(), 13)));
+    const [tplDept, setTplDept] = useState('');
+    const [tplTorneo, setTplTorneo] = useState('');
+    const [tplResp, setTplResp] = useState('');
+    const [tplErr, setTplErr] = useState(null);
+    useEffect(() => {
+      const h = (e) => { if (e.key === 'Escape') onClose(); };
+      window.addEventListener('keydown', h);
+      return () => window.removeEventListener('keydown', h);
+    }, [onClose]);
+
+    async function onFile(e) {
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!f) return;
+      setMsg(null);
+      if (!window.XLSX) { setMsg({ err: true, text: 'No se pudo cargar el lector de Excel. Revisa tu conexión y recarga la página.' }); return; }
+      setBusy(true);
+      try {
+        const buf = await f.arrayBuffer();
+        const wb = window.XLSX.read(buf, { type: 'array' });
+        const existing = hasExample ? new Map() : byNorm;
+        const grid = parseGridWorkbook(window.XLSX, wb, existing);
+        if (grid) {
+          if (!grid.items.length) setMsg({ err: true, text: 'Encontré las fechas, pero no hay personas con nombre en «' + f.name + '».' });
+          else setRes({ fileName: f.name, mode: 'grid', items: grid.items, sheets: grid.sheets, empty: grid.empty });
+        } else {
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: true });
+          const items = parseSheetRows(rows, existing);
+          if (!items.length) setMsg({ err: true, text: 'No encontré filas con datos en «' + f.name + '». Usa el formato de comidas por día o la lista simple: Nombre, Área, Comidas, Cenas y Snacks.' });
+          else setRes({ fileName: f.name, mode: 'counts', items });
+        }
+      } catch (err) {
+        setMsg({ err: true, text: 'No se pudo leer el archivo. Debe ser un Excel (.xlsx, .xls) o un CSV.' });
+      }
+      setBusy(false);
+    }
+    async function plantilla() {
+      try {
+        await dl.save({ filename: 'Plantilla-voluntarios.xlsx', data: templateBuffer() });
+        setMsg({ ok: true, text: 'Plantilla guardada. Llénala y vuelve a subirla aquí.' });
+      } catch (err) {
+        setMsg(err && err.code === 'declined' ? { text: 'Descarga cancelada.' } : { err: true, text: 'No se pudo guardar la plantilla.' });
+      }
+    }
+
+    async function bajarPlantilla(e) {
+      e.preventDefault();
+      setTplErr(null);
+      const a = parseKey(tplFrom);
+      const b = parseKey(tplTo);
+      if (!a || !b) { setTplErr({ t: 'Elige las dos fechas', d: 'El primer y el último día del torneo.' }); return; }
+      if (b < a) { setTplErr({ t: 'Las fechas están al revés', d: 'El último día debe ser igual o posterior al primero.' }); return; }
+      if (Math.round((b - a) / 86400000) + 1 > 62) { setTplErr({ t: 'Son demasiados días', d: 'La plantilla admite hasta 62 días.' }); return; }
+      if (!window.JSZip) { setTplErr({ t: 'No se pudo cargar el generador de Excel', d: 'Revisa tu conexión y recarga la página.' }); return; }
+      try {
+        const data = await requisicionBuffer({ from: tplFrom, to: tplTo, dept: collapse(tplDept), torneo: collapse(tplTorneo), resp: collapse(tplResp) });
+        const nm = collapse(tplDept).replace(/[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ ]/g, '').replace(/ /g, '-');
+        await dl.save({ filename: 'Requisicion-' + (nm || 'comidas') + '-' + tplFrom + '.xlsx', data });
+        setMsg({ ok: true, text: 'Plantilla guardada. Llénala y vuelve a subirla aquí.' });
+      } catch (err) {
+        if (err && err.code === 'declined') setMsg({ text: 'Descarga cancelada.' });
+        else setTplErr({ t: 'No se pudo guardar la plantilla', d: 'Inténtalo de nuevo.' });
+      }
+    }
+
+    const grid = !!res && res.mode === 'grid';
+    const isOk = (i) => !i.error && !i.dup;
+    const okItems = res ? res.items.filter(isOk) : [];
+    const dups = res ? res.items.filter((i) => i.dup).length : 0;
+    const bad = res ? res.items.filter((i) => i.error).length : 0;
+    const upd = okItems.filter((i) => i.update).length;
+    const startOk = !!parseKey(start);
+    const areaOf = (i) => (grid ? (areaSrc === 'col' && i.colArea ? i.colArea : i.sheet) : i.area);
+    const daysOf = (i) => (grid ? i.days : daysFromCounts(start, i.comida, i.cena, i.snack));
+    const raciones = grid ? totalsOf(okItems.map((i) => ({ days: i.days }))).raciones : okItems.reduce((a, i) => a + i.comida + i.cena + i.snack, 0);
+    const canGo = okItems.length > 0 && (grid || startOk);
+    const go = () => {
+      onImport(okItems.map((i) => ({ id: uid(), name: i.name, area: areaOf(i), days: daysOf(i) })));
+      onClose();
+    };
+    const issues = [];
+    if (grid) {
+      res.items.forEach((i) => {
+        const who = i.sheet + ' · fila ' + i.row + ' · ' + i.name;
+        if (i.error) issues.push({ t: 'err', text: who + ': ' + i.error + ' (no se importa)' });
+        else if (i.dup) issues.push({ t: 'dup', text: who + ': ' + i.dup });
+        if (!i.error && !i.dup) i.warns.forEach((w) => issues.push({ t: 'warn', text: who + ': ' + w }));
+      });
+    }
+    const warnCount = issues.filter((x) => x.t === 'warn').length;
+    const msgCls = msg ? (msg.err ? 'text-danger' : msg.ok ? 'text-ok' : 'text-mute') : 'hidden';
+    const issueCls = { err: 'text-danger', dup: 'text-ink', warn: 'text-mute' };
+
+    return html`<div className="fixed inset-0 z-[60] grid place-items-center bg-black/60" style=${overlayStyle()} onClick=${onClose}>
+      <div role="dialog" aria-modal="true" aria-labelledby="imp-titulo" onClick=${(e) => e.stopPropagation()}
+        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-surface">
+        <div className="flex items-start justify-between gap-4 p-5 pb-3 sm:p-6 sm:pb-3">
+          <div className="min-w-0">
+            <h2 id="imp-titulo" className="flex items-center gap-2 font-display text-2xl font-bold">Importar datos <${Icon} d=${P.sheet} size=${22} cls="text-accent" /></h2>
+            <p className="mt-1 text-sm text-mute">Sube el Excel de requisición de comidas (una hoja por departamento, con fechas) o una lista simple.</p>
+          </div>
+          <button type="button" onClick=${onClose} aria-label="Cerrar" className="focus-ring grid h-9 w-9 shrink-0 place-items-center rounded-md text-mute hover:text-ink"><${Icon} d=${P.x} size=${20} /></button>
+        </div>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pb-4 sm:px-6">
+          ${hasExample ? html`<p className="rounded-lg bg-accent-soft px-4 py-3 text-sm"><strong>Hay datos de ejemplo cargados.</strong> Al importar se reemplazan por tu lista.</p>` : null}
+
+          ${res && res.mode === 'counts' ? html`<div className="flex flex-col gap-1.5">
+            <label htmlFor="imp-inicio" className="text-sm font-semibold">Fecha de inicio de las comidas</label>
+            <input id="imp-inicio" type="date" value=${start} onChange=${(e) => setStart(e.target.value)}
+              className=${'focus-ring w-full max-w-xs rounded-lg border-2 bg-subtle px-4 py-2.5 text-base text-ink ' + (startOk ? 'border-line focus:border-accent' : 'border-danger')} />
+            <p className="text-sm text-mute">Cada tipo de comida se reparte en días seguidos desde esa fecha. Para cargar un solo día, pon 1 en lo que le toca ese día. Si la persona ya está registrada, se le agregan esos días sin borrar los demás.</p>
+          </div>` : null}
+
+          ${!res ? html`<div className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-line px-4 py-8 text-center">
+              <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-accent-soft text-accent"><${Icon} d=${P.upload} size=${24} /></span>
+              <p className="font-semibold">Elige tu archivo de Excel</p>
+              <p className="text-sm text-mute"><strong>Formato de requisición:</strong> una hoja por departamento, con las fechas arriba y Comida / Cena por día. Se leen todas las hojas menos «Resumen».</p>
+              <p className="text-sm text-mute"><strong>Lista simple:</strong> columnas Nombre, Área, Comidas, Cenas y Snacks. Acepta .xlsx, .xls y .csv.</p>
+              <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+                <input id="imp-archivo" type="file" accept=".xlsx,.xls,.csv" onChange=${onFile} className="peer sr-only" />
+                <label htmlFor="imp-archivo" className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-base font-semibold text-accent-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent"><${Icon} d=${P.upload} size=${20} /> ${busy ? 'Leyendo…' : 'Elegir archivo'}</label>
+                ${dl ? html`<button type="button" onClick=${() => setTplOpen((o) => !o)} aria-expanded=${tplOpen} className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg border border-line px-5 py-3 text-base font-medium"><${Icon} d=${P.download} size=${20} /> Descargar plantilla</button>` : null}
+              </div>
+              ${dl && tplOpen ? html`<form onSubmit=${bajarPlantilla} noValidate className="mx-auto flex w-full max-w-md flex-col gap-3 rounded-xl border border-line bg-subtle p-4 text-left">
+                <p className="text-sm font-semibold">Plantilla de requisición de comidas</p>
+                <p className="text-xs text-mute">Se genera con las fechas ya puestas. Solo acepta 1 o 2 en cada casilla y los totales no se pueden borrar.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1"><label htmlFor="pl-desde" className="text-sm font-semibold">Primer día</label><input id="pl-desde" type="date" value=${tplFrom} onChange=${(e) => { setTplFrom(e.target.value); setTplErr(null); }} className="focus-ring w-full rounded-lg border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-accent" /></div>
+                  <div className="flex flex-col gap-1"><label htmlFor="pl-hasta" className="text-sm font-semibold">Último día</label><input id="pl-hasta" type="date" value=${tplTo} onChange=${(e) => { setTplTo(e.target.value); setTplErr(null); }} className="focus-ring w-full rounded-lg border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-accent" /></div>
+                </div>
+                <div className="flex flex-col gap-1"><label htmlFor="pl-dep" className="text-sm font-semibold">Departamento <span className="font-normal text-mute">(opcional)</span></label><input id="pl-dep" type="text" maxLength=${31} value=${tplDept} onChange=${(e) => setTplDept(e.target.value)} placeholder="Ej. Prensa" className="focus-ring w-full rounded-lg border-2 border-line bg-surface px-3 py-2 text-base text-ink placeholder:text-mute focus:border-accent" /></div>
+                <div className="flex flex-col gap-1"><label htmlFor="pl-tor" className="text-sm font-semibold">Torneo <span className="font-normal text-mute">(opcional)</span></label><input id="pl-tor" type="text" maxLength=${60} value=${tplTorneo} onChange=${(e) => setTplTorneo(e.target.value)} placeholder="Ej. Querétaro Open 2026" className="focus-ring w-full rounded-lg border-2 border-line bg-surface px-3 py-2 text-base text-ink placeholder:text-mute focus:border-accent" /></div>
+                <div className="flex flex-col gap-1"><label htmlFor="pl-res" className="text-sm font-semibold">Responsable <span className="font-normal text-mute">(opcional)</span></label><input id="pl-res" type="text" maxLength=${60} value=${tplResp} onChange=${(e) => setTplResp(e.target.value)} className="focus-ring w-full rounded-lg border-2 border-line bg-surface px-3 py-2 text-base text-ink focus:border-accent" /></div>
+                ${tplErr ? html`<${Alert} title=${tplErr.t}>${tplErr.d}<//>` : null}
+                <button type="submit" className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-base font-semibold text-accent-ink"><${Icon} d=${P.download} size=${20} /> Descargar plantilla de requisición</button>
+                <button type="button" onClick=${plantilla} className="focus-ring rounded-md px-2 py-1.5 text-sm font-medium text-mute hover:text-ink">O descarga la plantilla de lista simple (Nombre, Área, Comidas, Cenas, Snacks)</button>
+              </form>` : null}
+            </div>`
+          : html`<div className="flex flex-col gap-3">
+              <p className="text-sm text-mute">Archivo: <strong className="text-ink break-all">${res.fileName}</strong> · ${grid ? 'formato de requisición (' + res.sheets.length + ' ' + plural(res.sheets.length, 'hoja', 'hojas') + ' con fechas)' : 'lista simple'}</p>
+              <div className="flex flex-wrap gap-2 text-sm font-semibold tabular">
+                <span className="rounded-full bg-ok-bg px-3 py-1 text-ok">${okItems.length} ${plural(okItems.length, 'persona lista', 'personas listas')} · ${raciones} ${plural(raciones, 'ración', 'raciones')}${upd ? ' (' + upd + ' ya ' + plural(upd, 'registrada', 'registradas') + ')' : ''}</span>
+                ${dups > 0 ? html`<span className="rounded-full bg-subtle px-3 py-1">${dups} ${plural(dups, 'repetida se omite', 'repetidas se omiten')}</span>` : null}
+                ${bad > 0 ? html`<span className="rounded-full bg-danger-bg px-3 py-1 text-danger">${bad} ${plural(bad, 'fila con problema', 'filas con problemas')}, no se importan</span>` : null}
+                ${warnCount > 0 ? html`<span className="rounded-full bg-subtle px-3 py-1 text-mute">${warnCount} ${plural(warnCount, 'aviso', 'avisos')}</span>` : null}
+              </div>
+
+              ${grid ? html`<fieldset className="flex flex-col gap-2 rounded-xl border border-line p-3">
+                <legend className="px-1 text-sm font-semibold">¿Qué área se le pone a cada persona?</legend>
+                <label className="flex cursor-pointer items-start gap-2 text-sm"><input type="radio" name="imp-area" checked=${areaSrc === 'sheet'} onChange=${() => setAreaSrc('sheet')} className="focus-ring mt-0.5 h-4 w-4 accent-[var(--accent)]" /><span>El nombre de la hoja (Prensa, Jueces, Ball Kids…)</span></label>
+                <label className="flex cursor-pointer items-start gap-2 text-sm"><input type="radio" name="imp-area" checked=${areaSrc === 'col'} onChange=${() => setAreaSrc('col')} className="focus-ring mt-0.5 h-4 w-4 accent-[var(--accent)]" /><span>La columna «Area» de cada persona (si está vacía, se usa la hoja)</span></label>
+              </fieldset>
+
+              <div className="max-h-[26vh] overflow-auto rounded-xl border border-line">
+                <table className="w-full text-left text-sm">
+                  <caption className="sr-only">Hojas del archivo</caption>
+                  <thead className="sticky top-0 bg-subtle text-xs font-semibold uppercase tracking-wider text-mute">
+                    <tr><th scope="col" className="px-3 py-2">Hoja</th><th scope="col" className="px-3 py-2">Fechas</th><th scope="col" className="px-2 py-2 text-right">Listas</th><th scope="col" className="px-2 py-2 text-right">Omitidas</th><th scope="col" className="px-2 py-2 text-right">Problemas</th></tr>
+                  </thead>
+                  <tbody className="tabular">
+                    ${res.sheets.map((s) => {
+                      const its = res.items.filter((i) => i.sheet === s.sheet);
+                      return html`<tr key=${s.sheet} className="border-t border-line">
+                        <td className="px-3 py-2 font-medium">${s.sheet}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-mute">${s.from ? shortRange(s.from, s.to) : '—'}</td>
+                        <td className="px-2 py-2 text-right">${its.filter(isOk).length}</td>
+                        <td className="px-2 py-2 text-right">${its.filter((i) => i.dup).length}</td>
+                        <td className=${'px-2 py-2 text-right ' + (its.some((i) => i.error) ? 'font-semibold text-danger' : '')}>${its.filter((i) => i.error).length}</td>
+                      </tr>`;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              ${res.empty.length ? html`<p className="text-xs text-mute">Sin formato de fechas, no se leyeron: ${res.empty.join(', ')}.</p>` : null}
+
+              ${issues.length ? html`<div>
+                <p className="mb-1.5 text-sm font-semibold">Problemas y avisos</p>
+                <ul className="max-h-[28vh] overflow-auto rounded-xl border border-line p-3 text-sm">
+                  ${issues.slice(0, 300).map((x, k) => html`<li key=${k} className=${'py-0.5 break-words ' + issueCls[x.t]}>${x.text}</li>`)}
+                  ${issues.length > 300 ? html`<li className="py-0.5 text-mute">…y ${issues.length - 300} más.</li>` : null}
+                </ul>
+              </div>` : html`<p className="text-sm font-medium text-ok">No encontré problemas.</p>`}`
+              : html`<div className="max-h-[45vh] overflow-auto rounded-xl border border-line">
+                <table className="w-full text-left text-sm">
+                  <caption className="sr-only">Vista previa de la importación</caption>
+                  <thead className="sticky top-0 bg-subtle text-xs font-semibold uppercase tracking-wider text-mute">
+                    <tr>
+                      <th scope="col" className="px-3 py-2">Fila</th>
+                      <th scope="col" className="px-3 py-2">Nombre</th>
+                      <th scope="col" className="px-3 py-2">Área</th>
+                      <th scope="col" className="px-2 py-2 text-right">COM</th>
+                      <th scope="col" className="px-2 py-2 text-right">CEN</th>
+                      <th scope="col" className="px-2 py-2 text-right">SNK</th>
+                      <th scope="col" className="px-3 py-2">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="tabular">
+                    ${res.items.map((i) => html`<tr key=${i.row} className=${'border-t border-line ' + (i.error ? 'bg-danger-bg' : '')}>
+                      <td className="px-3 py-2 text-mute">${i.row}</td>
+                      <td className="px-3 py-2 font-medium">${i.name || '—'}</td>
+                      <td className="px-3 py-2">${i.area || '—'}</td>
+                      <td className="px-2 py-2 text-right">${i.comida}</td>
+                      <td className="px-2 py-2 text-right">${i.cena}</td>
+                      <td className="px-2 py-2 text-right">${i.snack}</td>
+                      <td className=${'px-3 py-2 font-semibold whitespace-nowrap ' + (i.error ? 'text-danger' : 'text-ok')}>${i.error || (i.update ? 'Se agrega a una persona ya registrada' : 'Lista')}</td>
+                    </tr>`)}
+                  </tbody>
+                </table>
+              </div>`}
+            </div>`}
+          <p role="status" aria-live="polite" className=${'text-sm font-medium ' + msgCls}>${msg ? msg.text : ''}</p>
+        </div>
+
+        <div className="flex flex-col-reverse gap-2 border-t border-line p-4 sm:flex-row sm:justify-end sm:px-6">
+          ${res ? html`<button type="button" onClick=${() => { setRes(null); setMsg(null); }} className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg border border-line px-5 py-3 text-base font-medium"><${Icon} d=${P.undo} size=${18} /> Elegir otro archivo</button>` : html`<button type="button" onClick=${onClose} className="focus-ring rounded-lg border border-line px-5 py-3 text-base font-medium">Cancelar</button>`}
+          ${res ? html`<button type="button" onClick=${go} disabled=${!canGo}
+            className=${'focus-ring inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-base font-semibold ' + (canGo ? 'bg-accent text-accent-ink' : 'cursor-not-allowed bg-line text-mute')}><${Icon} d=${P.check} size=${18} sw=${3} /> Importar ${okItems.length} ${plural(okItems.length, 'persona', 'personas')}</button>` : null}
+        </div>
+      </div>
+    </div>`;
+  }
+
+  /* Resumen de los días elegidos para una persona, con botones para abrir el menú y copiar esquemas */
+  function DaysField({ days, setDays, people, onOpen, idp }) {
+    const pt = personTotals(days);
+    const runs = runsOf(days);
+    const last = people.length ? people[people.length - 1] : null;
+    const soft = 'focus-ring rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink hover:border-mute';
+    return html`<div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick=${onOpen} className="focus-ring inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-semibold text-accent-ink"><${Icon} d=${P.calendar} size=${18} /> Elegir días y comidas</button>
+        ${last ? html`<button type="button" onClick=${() => setDays(cleanDays(last.days))} title=${last.name} className=${soft}>Igual que la última persona</button>` : null}
+        ${people.length > 0 ? html`<div>
+          <label htmlFor=${idp + '-copiar'} className="sr-only">Copiar los días y comidas de otra persona</label>
+          <select id=${idp + '-copiar'} value="" onChange=${(e) => { const p = people.find((x) => x.id === e.target.value); if (p) setDays(cleanDays(p.days)); }} className="focus-ring max-w-[14rem] rounded-lg border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink">
+            <option value="">Copiar de otra persona…</option>
+            ${people.map((p) => html`<option key=${p.id} value=${p.id}>${p.name}</option>`)}
+          </select>
+        </div>` : null}
+        ${pt.dias > 0 ? html`<button type="button" onClick=${() => setDays({})} className="focus-ring rounded-md px-2 py-2 text-sm font-medium text-mute hover:text-danger">Limpiar</button>` : null}
+      </div>
+      ${runs.length === 0
+        ? html`<p className="rounded-xl border border-dashed border-line px-4 py-4 text-sm text-mute">Todavía no elegiste ningún día. Presiona «Elegir días y comidas» y marca en el calendario los días que le tocan.</p>`
+        : html`<ul className="flex flex-col gap-1.5">
+            ${runs.map((run) => html`<li key=${run.from} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-subtle px-3 py-2 text-sm">
+              <span className="font-semibold">${runLabel(run.from, run.to)}</span>
+              <span className="flex flex-wrap gap-1.5">${MEALS.filter((m) => run.mask & m.bit).map((m) => html`<span key=${m.key} className=${'rounded-full px-2 py-0.5 text-xs font-medium ' + MEAL_STYLE[m.key].chip}>${m.label}${qtyOf(run.mask, m) > 1 ? ' ×2' : ''}</span>`)}</span>
+            </li>`)}
+          </ul>`}
+      ${pt.raciones > 0 ? html`<p role="status" aria-live="polite" className="text-sm font-medium">${pt.dias} ${plural(pt.dias, 'día', 'días')} con comida · ${pt.raciones} raciones: ${pt.comida} ${plural(pt.comida, 'comida', 'comidas')}, ${pt.cena} ${plural(pt.cena, 'cena', 'cenas')}, ${pt.snack} ${plural(pt.snack, 'snack', 'snacks')}.</p>` : null}
+    </div>`;
+  }
+
+  function AddForm({ byNorm, areas, people, days, setDays, onOpenMenu, onAdd, onDup, onImport, defaultDays, onEditMatch }) {
+    const [name, setName] = useState('');
+    const [area, setArea] = useState('');
+    const [err, setErr] = useState(null);
+    const [okMsg, setOkMsg] = useState('');
+    const inputRef = useRef(null);
+    const areaRef = useRef(null);
+    const timer = useRef(null);
+    const match = name.trim() ? byNorm.get(normalize(name)) : null;
+    const pt = personTotals(days);
+
+    function submit(e) {
+      e.preventDefault();
+      const clean = collapse(name);
+      if (!clean) { setErr('name'); if (inputRef.current) inputRef.current.focus(); return; }
+      if (match) { onDup(match); if (inputRef.current) inputRef.current.focus(); return; }
+      const cleanArea = collapse(area);
+      if (!cleanArea) { setErr('area'); if (areaRef.current) areaRef.current.focus(); return; }
+      if (pt.raciones === 0) { setErr('meals'); return; }
+      const known = areas.find((x) => normalize(x) === normalize(cleanArea));
+      const finalArea = known || cleanArea;
+      onAdd({ id: uid(), name: clean, area: finalArea, days: cleanDays(days) });
+      setArea(finalArea);
+      setOkMsg('Agregado: ' + clean + ' · ' + finalArea + ' (' + pt.dias + ' ' + plural(pt.dias, 'día', 'días') + ', ' + pt.raciones + ' raciones)');
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => setOkMsg(''), 4500);
+      setName('');
+      setDays({ ...defaultDays });
+      setErr(null);
+      if (inputRef.current) inputRef.current.focus();
+    }
+    const setD = (d) => { setDays(d); setErr(null); };
+    const nameInvalid = !!match || err === 'name';
+
+    return html`<section><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 className="font-display text-lg font-semibold">Agregar persona</h2>
+    <button type="button" onClick=${onImport} className="focus-ring inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2 text-sm font-semibold hover:border-accent hover:text-accent"><${Icon} d=${P.upload} size=${16} /> Importar datos</button></div>
+    <form onSubmit=${submit} noValidate className="flex flex-col gap-5 rounded-2xl border border-line bg-surface p-5 sm:p-6">
+      <p className="text-sm text-mute">Escribe el nombre y el área. Después elige los días y las comidas que le tocan.</p>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="nombre" className="text-sm font-semibold">Nombre completo del beneficiario</label>
+        <input id="nombre" ref=${inputRef} type="text" autoComplete="off" maxLength=${120} value=${name}
+          placeholder="Ej. María Fernanda López Ruiz"
+          onChange=${(e) => { setName(e.target.value); setErr(null); }}
+          aria-invalid=${nameInvalid} aria-describedby="nombre-ayuda"
+          className=${'focus-ring w-full rounded-lg border-2 bg-subtle px-4 py-3 text-lg text-ink placeholder:text-mute ' + (nameInvalid ? 'border-danger' : 'border-line focus:border-accent')} />
+        <p id="nombre-ayuda" className="text-xs text-mute">No se aceptan nombres repetidos. Se ignoran mayúsculas, acentos y espacios de más.</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="area" className="text-sm font-semibold">Área</label>
+        <input id="area" ref=${areaRef} type="text" list="areas-lista" autoComplete="off" maxLength=${60} value=${area}
+          placeholder="Ej. Jugadores, Árbitros, Staff"
+          onChange=${(e) => { setArea(e.target.value); setErr(null); }}
+          aria-invalid=${err === 'area'} aria-describedby="area-ayuda"
+          className=${'focus-ring w-full rounded-lg border-2 bg-subtle px-4 py-3 text-lg text-ink placeholder:text-mute ' + (err === 'area' ? 'border-danger' : 'border-line focus:border-accent')} />
+        <datalist id="areas-lista">${areas.map((x) => html`<option key=${x} value=${x}></option>`)}</datalist>
+        <p id="area-ayuda" className="text-xs text-mute">Elige una de la lista o escribe una nueva. Se queda seleccionada para la siguiente persona.</p>
+      </div>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 text-sm font-semibold">Días y comidas</legend>
+        <${DaysField} days=${days} setDays=${setD} people=${people} onOpen=${onOpenMenu} idp="nuevo" />
+      </fieldset>
+
+      ${match
+        ? html`<${Alert} title="Este nombre ya fue registrado">Ya está en la lista como «${match.name}»${match.area ? ' (' + match.area + ')' : ''}. Si es otra persona, agrega un segundo apellido o un dato que la distinga.<//>`
+        : err === 'name'
+          ? html`<${Alert} title="Falta el nombre">Escribe el nombre completo de la persona.<//>`
+          : err === 'area'
+            ? html`<${Alert} title="Falta el área">Escribe el área a la que pertenece la persona.<//>`
+            : err === 'meals'
+              ? html`<${Alert} title="Elige los días y las comidas">Presiona «Elegir días y comidas» y marca en el calendario los días que le tocan a esta persona.<//>`
+              : null}
+
+      ${match ? html`<button type="button" onClick=${() => onEditMatch(match)} className="focus-ring w-fit rounded-lg border border-line px-4 py-2.5 text-sm font-semibold hover:border-accent hover:text-accent">Editar a «${match.name}» para agregarle otro día</button>` : null}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button type="submit" className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3.5 text-base font-semibold text-accent-ink sm:w-auto">
+          <${Icon} d=${P.plus} size=${20} sw=${2.5} /> Agregar persona
+        </button>
+        <p role="status" aria-live="polite" className=${'flex items-center gap-2 text-sm font-medium break-words min-w-0 ' + (okMsg ? 'text-ok' : 'hidden')}>
+          ${okMsg ? html`<${Icon} d=${P.check} size=${16} sw=${3} cls="shrink-0" />` : null}<span className="min-w-0">${okMsg}</span>
+        </p>
+      </div>
+    </form></section>`;
+  }
+
+  function DayStrip({ days }) {
+    return html`<div className="flex flex-wrap gap-1" role="img" aria-label=${diasTexto(days)}>
+      ${stripKeys(days).map((k) => {
+        const v = days[k] || 0;
+        return html`<div key=${k} title=${labelFull(k) + ': ' + (v ? mealsText(v) : 'sin comida')} className="flex w-[18px] flex-col items-center gap-[3px]">
+          <span className="text-[10px] leading-none text-mute tabular">${parseKey(k).getDate()}</span>
+          ${MEALS.map((m) => html`<span key=${m.key} className=${'h-1.5 w-full rounded-sm ' + ((v & m.bit) ? MEAL_STYLE[m.key].dot : 'bg-line')}></span>`)}
+        </div>`;
+      })}
+    </div>`;
+  }
+  function DaysCell({ p }) {
+    const pt = personTotals(p.days);
+    return html`<div className="flex flex-col gap-1.5">
+      <${DayStrip} days=${p.days} />
+      <p className=${'text-xs ' + (pt.raciones ? 'text-mute' : 'font-semibold text-danger')}>${pt.raciones ? diasTexto(p.days) + ' · ' + pt.raciones + ' raciones' : 'Sin comidas asignadas'}</p>
+    </div>`;
+  }
+
+  function Row({ p, flash, confirming, onAsk, onCancel, onDelete, onEdit, readOnly }) {
+    const act = 'focus-ring inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-md px-2 text-sm font-medium text-mute ';
+    return html`<tr id=${'row-' + p.id} className=${'align-top border-t border-line ' + (flash ? 'flash' : '')}>
+      <td className="hidden sm:table-cell py-3 pl-4 pr-2 font-mono text-sm text-mute tabular">${p.idx}</td>
+      <td className="min-w-0 py-3 pl-4 pr-3 sm:pl-2 font-medium break-words">
+        ${p.name}
+        ${p.area ? html`<span className="mt-0.5 block text-sm font-normal text-mute sm:hidden">${p.area}</span>` : null}
+        <div className="mt-2 font-normal sm:hidden"><${DaysCell} p=${p} /></div>
+      </td>
+      <td className="hidden sm:table-cell py-3 pr-3 break-words">${p.area || html`<span className="text-mute">Sin área</span>`}</td>
+      <td className="hidden sm:table-cell py-3 pr-3"><${DaysCell} p=${p} /></td>
+      <td className=${readOnly ? 'hidden' : 'py-2 pr-3 sm:pr-4 text-right'}>
+        ${confirming
+          ? html`<div className="flex flex-col items-end gap-1.5 sm:flex-row sm:justify-end">
+              <button type="button" onClick=${onDelete} className="focus-ring rounded-md bg-danger px-3 py-2 text-sm font-semibold text-accent-ink whitespace-nowrap">Sí, eliminar</button>
+              <button type="button" onClick=${onCancel} className="focus-ring rounded-md border border-line px-3 py-2 text-sm font-medium whitespace-nowrap">Cancelar</button>
+            </div>`
+          : html`<div className="flex flex-col items-end sm:flex-row sm:justify-end">
+              <button type="button" onClick=${onEdit} aria-label=${'Editar a ' + p.name} className=${act + 'hover:text-accent'}><${Icon} d=${P.edit} size=${18} /><span className="hidden sm:inline">Editar</span></button>
+              <button type="button" onClick=${onAsk} aria-label=${'Eliminar a ' + p.name} className=${act + 'hover:text-danger'}><${Icon} d=${P.trash} size=${18} /><span className="hidden sm:inline">Eliminar</span></button>
+            </div>`}
+      </td>
+    </tr>`;
+  }
+
+  function PeopleTable({ people, flash, example, onDelete, onClear, onExample, onEdit, scope, total, onShowAll, readOnly }) {
+    const [query, setQuery] = useState('');
+    const [sort, setSort] = useState('recent');
+    const [confirmId, setConfirmId] = useState(null);
+    const [confirmClear, setConfirmClear] = useState(false);
+
+    const rows = useMemo(() => {
+      let r = people.map((p, i) => ({ ...p, idx: i + 1 }));
+      const q = normalize(query);
+      if (q) r = r.filter((p) => normalize(p.name + ' ' + (p.area || '')).includes(q));
+      if (sort === 'az') r.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      else if (sort === 'area') r.sort((a, b) => (a.area || '').localeCompare(b.area || '', 'es') || a.name.localeCompare(b.name, 'es'));
+      else r.reverse();
+      return r;
+    }, [people, query, sort]);
+
+    const segBtn = (key, label) => html`<button type="button" aria-pressed=${sort === key} onClick=${() => setSort(key)}
+      className=${'focus-ring px-3 py-2 text-sm font-medium ' + (sort === key ? 'bg-accent-soft text-accent' : 'bg-surface text-mute hover:text-ink')}>${label}</button>`;
+
+    return html`<section>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-lg font-semibold">Lista registrada <span className="ml-1 text-sm font-normal text-mute">· ${scope}</span></h2>
+        <p className="text-sm text-mute tabular">${people.length} ${plural(people.length, 'persona', 'personas')}</p>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+      <div className="flex flex-col gap-3 p-4 sm:p-6 sm:pb-4 empty:hidden">
+        ${example && !readOnly ? html`<div className="rounded-lg border border-line bg-accent-soft px-4 py-3 text-sm">
+          <p><strong>Estás viendo datos de ejemplo.</strong> Vacía la lista antes de capturar la real.</p>
+        </div>` : null}
+
+        ${people.length > 0 ? html`<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          ${people.length >= 6 ? html`<div className="relative flex-1 min-w-0">
+            <span className="pointer-events-none absolute inset-y-0 left-3 grid place-items-center text-mute"><${Icon} d=${P.search} size=${18} /></span>
+            <label htmlFor="buscar" className="sr-only">Buscar en la lista</label>
+            <input id="buscar" type="search" value=${query} onChange=${(e) => setQuery(e.target.value)} placeholder="Buscar por nombre o área"
+              className="focus-ring w-full rounded-lg border border-line bg-subtle py-2.5 pl-10 pr-3 text-base text-ink placeholder:text-mute" />
+          </div>` : html`<div className="flex-1"></div>`}
+          <div className="flex flex-wrap items-center gap-3">
+            <div role="group" aria-label="Orden de la lista" className="inline-flex overflow-hidden rounded-lg border border-line">
+              ${segBtn('recent', 'Recientes')}${segBtn('az', 'A–Z')}${segBtn('area', 'Por área')}
+            </div>
+            ${readOnly ? null : confirmClear
+              ? html`<div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">¿Vaciar la lista de todos los días?</span>
+                  <button type="button" onClick=${() => { onClear(); setConfirmClear(false); }} className="focus-ring rounded-md bg-danger px-3 py-2 text-sm font-semibold text-accent-ink">Sí, vaciar</button>
+                  <button type="button" onClick=${() => setConfirmClear(false)} className="focus-ring rounded-md border border-line px-3 py-2 text-sm font-medium">Cancelar</button>
+                </div>`
+              : html`<button type="button" onClick=${() => setConfirmClear(true)} className="focus-ring rounded-md px-2 py-2 text-sm font-medium text-mute hover:text-danger">Vaciar lista</button>`}
+          </div>
+        </div>` : null}
+      </div>
+
+      ${people.length === 0 && total > 0
+        ? html`<div className="mx-4 mb-4 mt-4 sm:mx-6 sm:mb-6 sm:mt-6 flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 py-10 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-accent-soft text-accent"><${Icon} d=${P.calendar} size=${24} /></span>
+            <p className="font-semibold">No hay datos para ${scope.toLowerCase()}</p>
+            <p className="max-w-sm text-sm text-mute">Nadie tiene comidas asignadas en este día.${readOnly ? '' : ' Agrega personas o importa un archivo para este día.'} Hay ${total} ${plural(total, 'persona registrada', 'personas registradas')} en otros días.</p>
+            <button type="button" onClick=${onShowAll} className="focus-ring rounded-md border border-line px-3 py-2 text-sm font-medium hover:text-accent">Ver todos los días</button>
+          </div>`
+        : people.length === 0
+        ? html`<div className="mx-4 mb-4 mt-4 sm:mx-6 sm:mb-6 sm:mt-6 flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-line px-4 py-10 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-accent-soft text-accent"><${Icon} d=${P.receipt} size=${24} /></span>
+            <p className="font-semibold">Todavía no hay personas en la lista</p>
+            <p className="max-w-sm text-sm text-mute">${readOnly ? 'Todavía no se registró a nadie. Cuando haya datos, aquí verás qué días y qué comidas tiene cada persona.' : 'Agrega a la primera persona con el formulario de arriba. Aquí verás qué días y qué comidas tiene cada una, y podrás corregirlas.'}</p>
+            ${readOnly ? null : html`<button type="button" onClick=${onExample} className="focus-ring rounded-md border border-line px-3 py-2 text-sm font-medium text-mute hover:text-ink">Cargar datos de ejemplo para probar</button>`}
+          </div>`
+        : html`<div className="overflow-x-auto">
+            <table className="w-full text-left text-base">
+              <caption className="sr-only">Personas registradas, sus días y sus comidas</caption>
+              <thead className="bg-subtle text-xs font-semibold uppercase tracking-wider text-mute">
+                <tr>
+                  <th scope="col" className="hidden sm:table-cell py-2.5 pl-4 pr-2 w-12">N.º</th>
+                  <th scope="col" className="py-2.5 pl-4 pr-3 sm:pl-2">Nombre</th>
+                  <th scope="col" className="hidden sm:table-cell py-2.5 pr-3">Área</th>
+                  <th scope="col" className="hidden sm:table-cell py-2.5 pr-3">Días y comidas</th>
+                  <th scope="col" className=${readOnly ? 'hidden' : 'py-2.5 pr-3 sm:pr-4 text-right'}><span className="sr-only">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.length === 0
+                  ? html`<tr className="border-t border-line"><td colSpan=${5} className="px-4 py-8 text-center text-mute">Ninguna persona coincide con «${query}».</td></tr>`
+                  : rows.map((p) => {
+                      const fl = flash && flash.id === p.id;
+                      return html`<${Row} key=${p.id + (fl ? '-' + flash.n : '')} p=${p} flash=${fl} confirming=${confirmId === p.id} readOnly=${readOnly}
+                        onAsk=${() => setConfirmId(p.id)} onCancel=${() => setConfirmId(null)}
+                        onDelete=${() => { setConfirmId(null); onDelete(p.id); }}
+                        onEdit=${() => onEdit(p)} />`;
+                    })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-line px-4 py-3 text-xs text-mute sm:px-6">
+            <span>Cada columna es un día. De arriba abajo:</span>
+            ${MEALS.map((m) => html`<span key=${m.key} className="inline-flex items-center gap-1.5"><span className=${'h-2 w-3 rounded-sm ' + MEAL_STYLE[m.key].dot}></span>${m.label}</span>`)}
+            <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 rounded-sm bg-line"></span>Sin esa comida</span>
+          </div>`}
+      </div>
+    </section>`;
+  }
+
+  function EditModal({ p, people, byNorm, areas, onSave, onCancel }) {
+    const [name, setName] = useState(p.name);
+    const [area, setArea] = useState(p.area || '');
+    const [days, setDays] = useState(() => cleanDays(p.days));
+    const [menu, setMenu] = useState(false);
+    const [err, setErr] = useState(null);
+    useEffect(() => {
+      const h = (e) => { if (e.key === 'Escape' && !menu) onCancel(); };
+      window.addEventListener('keydown', h);
+      return () => window.removeEventListener('keydown', h);
+    }, [onCancel, menu]);
+    const found = name.trim() ? byNorm.get(normalize(name)) : null;
+    const dup = found && found.id !== p.id ? found : null;
+    const pt = personTotals(days);
+    function submit(e) {
+      e.preventDefault();
+      const clean = collapse(name);
+      const cleanArea = collapse(area);
+      if (!clean) { setErr('name'); return; }
+      if (dup) return;
+      if (!cleanArea) { setErr('area'); return; }
+      if (pt.raciones === 0) { setErr('meals'); return; }
+      const known = areas.find((x) => normalize(x) === normalize(cleanArea));
+      onSave(p.id, { name: clean, area: known || cleanArea, days: cleanDays(days) });
+    }
+    const setD = (d) => { setDays(d); setErr(null); };
+    const field = (bad) => 'focus-ring w-full rounded-lg border-2 bg-subtle px-4 py-3 text-base text-ink placeholder:text-mute ' + (bad ? 'border-danger' : 'border-line focus:border-accent');
+    return html`<div className="fixed inset-0 z-50 grid place-items-center bg-black/60" style=${overlayStyle()} onClick=${onCancel}>
+      <form role="dialog" aria-modal="true" aria-labelledby="edit-titulo" onClick=${(e) => e.stopPropagation()} onSubmit=${submit} noValidate
+        className="flex max-h-full w-full max-w-2xl flex-col gap-4 overflow-y-auto rounded-2xl border border-line bg-surface p-5 sm:p-6">
+        <h2 id="edit-titulo" className="font-display text-xl font-bold">Editar persona</h2>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="ed-nombre" className="text-sm font-semibold">Nombre completo</label>
+          <input id="ed-nombre" type="text" autoComplete="off" maxLength=${120} value=${name} onChange=${(e) => { setName(e.target.value); setErr(null); }} className=${field(!!dup || err === 'name')} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="ed-area" className="text-sm font-semibold">Área</label>
+          <input id="ed-area" type="text" list="areas-lista" autoComplete="off" maxLength=${60} value=${area} onChange=${(e) => { setArea(e.target.value); setErr(null); }} className=${field(err === 'area')} />
+        </div>
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-1 text-sm font-semibold">Días y comidas</legend>
+          <${DaysField} days=${days} setDays=${setD} people=${people} onOpen=${() => setMenu(true)} idp="ed" />
+        </fieldset>
+        ${dup
+          ? html`<${Alert} title="Este nombre ya fue registrado">Ya está en la lista como «${dup.name}».<//>`
+          : err === 'name' ? html`<${Alert} title="Falta el nombre">Escribe el nombre completo de la persona.<//>`
+          : err === 'area' ? html`<${Alert} title="Falta el área">Escribe el área a la que pertenece la persona.<//>`
+          : err === 'meals' ? html`<${Alert} title="Elige los días y las comidas">Si esta persona ya no tiene comidas, elimínala de la lista.<//>`
+          : null}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick=${onCancel} className="focus-ring rounded-lg border border-line px-5 py-3 text-base font-medium">Cancelar</button>
+          <button type="submit" className="focus-ring inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-base font-semibold text-accent-ink"><${Icon} d=${P.check} size=${20} sw=${3} /> Guardar cambios</button>
+        </div>
+      </form>
+      ${menu ? html`<${DayMenu} value=${days} onApply=${setD} onClose=${() => setMenu(false)} idp="dme" />` : null}
+    </div>`;
+  }
+
+  function ConfirmModal({ totals, busy, onCancel, onConfirm }) {
+    const [resp, setResp] = useState('');
+    const [evento, setEvento] = useState('');
+    const [ok, setOk] = useState(false);
+    const nd = totals.byDay.length;
+    useEffect(() => {
+      const h = (e) => { if (e.key === 'Escape') onCancel(); };
+      window.addEventListener('keydown', h);
+      return () => window.removeEventListener('keydown', h);
+    }, [onCancel]);
+    const valid = collapse(resp).length >= 3 && ok;
+    return html`<div className="fixed inset-0 z-50 grid place-items-center bg-black/60" style=${overlayStyle()} onClick=${onCancel}>
+      <form role="dialog" aria-modal="true" aria-labelledby="dlg-titulo" onClick=${(e) => e.stopPropagation()}
+        onSubmit=${(e) => { e.preventDefault(); if (valid && !busy) onConfirm({ responsable: collapse(resp), evento: collapse(evento) }); }}
+        className="flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl border border-line bg-surface p-5 sm:p-6">
+        <div>
+          <h2 id="dlg-titulo" className="font-display text-xl font-bold">Confirmar y generar comprobante</h2>
+          <p className="mt-1 text-sm text-mute">El comprobante queda con la fecha y hora exactas de este momento.</p>
+        </div>
+        <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm font-medium text-ink tabular">
+          ${totals.people} ${plural(totals.people, 'persona', 'personas')} · ${nd} ${plural(nd, 'día', 'días')} · ${totals.raciones} raciones (${totals.comida} comidas, ${totals.cena} cenas, ${totals.snack} snacks)
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="responsable" className="text-sm font-semibold">Nombre de quien confirma la lista</label>
+          <input id="responsable" type="text" autoComplete="name" maxLength=${100} value=${resp} onChange=${(e) => setResp(e.target.value)} autoFocus=${true}
+            placeholder="Nombre y apellido"
+            className="focus-ring w-full rounded-lg border-2 border-line bg-subtle px-4 py-3 text-base text-ink placeholder:text-mute focus:border-accent" />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="evento" className="text-sm font-semibold">Evento o referencia <span className="font-normal text-mute">(opcional)</span></label>
+          <input id="evento" type="text" autoComplete="off" maxLength=${100} value=${evento} onChange=${(e) => setEvento(e.target.value)}
+            placeholder="Ej. Torneo de tenis, sede norte"
+            className="focus-ring w-full rounded-lg border-2 border-line bg-subtle px-4 py-3 text-base text-ink placeholder:text-mute focus:border-accent" />
+        </div>
+        <label className="flex cursor-pointer items-start gap-3 text-sm">
+          <input id="confirmo" type="checkbox" checked=${ok} onChange=${(e) => setOk(e.target.checked)} className="focus-ring mt-0.5 h-5 w-5 shrink-0 accent-[var(--accent)]" />
+          <span>Revisé la lista y confirmo que está completa y correcta.</span>
+        </label>
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick=${onCancel} className="focus-ring rounded-lg border border-line px-5 py-3 text-base font-medium">Volver a la lista</button>
+          <button type="submit" disabled=${!valid || busy} className=${'focus-ring inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-base font-semibold ' + (valid && !busy ? 'bg-accent text-accent-ink' : 'bg-line text-mute cursor-not-allowed')}>
+            <${Icon} d=${P.receipt} size=${20} /> ${busy ? 'Generando…' : 'Generar comprobante'}
+          </button>
+        </div>
+      </form>
+    </div>`;
+  }
+
+  /* ---------- Lista de control para imprimir (archivo HTML independiente) ---------- */
+  function buildPrintHtml(list, scopeText, when) {
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const byEs = (a, b) => a.localeCompare(b, 'es');
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const t = totalsOf(list);
+    const dayData = t.byDay.map((b) => {
+      const ps = list.filter((p) => p.days[b.key]).sort((x, y) => byEs(x.area || '', y.area || '') || byEs(x.name, y.name));
+      const areas = new Map();
+      ps.forEach((p) => {
+        const a = p.area || 'Sin área';
+        const o = areas.get(a) || { n: 0, comida: 0, cena: 0, snack: 0 };
+        o.n += 1;
+        MEALS.forEach((m) => { o[m.key] += qtyOf(p.days[b.key], m); });
+        areas.set(a, o);
+      });
+      return { b, ps, areas: Array.from(areas.keys()).sort(byEs).map((a) => [a, areas.get(a)]) };
+    });
+    const th = (s, c) => '<th' + (c ? ' class="' + c + '"' : '') + '>' + s + '</th>';
+    const summary = '<table><thead><tr>' + th('Fecha') + th('Personas', 'n') + th('Comidas', 'n') + th('Cenas', 'n') + th('Snacks', 'n') + th('Total', 'n') + '</tr></thead><tbody>' +
+      dayData.map((d) => '<tr><td>' + esc(cap(labelFull(d.b.key))) + '</td><td class="n">' + d.ps.length + '</td><td class="n">' + d.b.comida + '</td><td class="n">' + d.b.cena + '</td><td class="n">' + d.b.snack + '</td><td class="n"><strong>' + d.b.total + '</strong></td></tr>').join('') +
+      '</tbody></table>';
+    const days = dayData.map((d, idx) => {
+      const areaRows = d.areas.map((x) => '<tr><td>' + esc(x[0]) + '</td><td class="n">' + x[1].n + '</td><td class="n">' + x[1].comida + '</td><td class="n">' + x[1].cena + '</td><td class="n">' + x[1].snack + '</td></tr>').join('');
+      const rows = d.ps.map((p, i) => '<tr><td class="n">' + (i + 1) + '</td><td>' + esc(p.name) + '</td><td>' + esc(p.area || 'Sin área') + '</td>' +
+        MEALS.map((m) => '<td class="c">' + '●'.repeat(qtyOf(p.days[d.b.key], m)) + '</td>').join('') + '<td class="box"></td></tr>').join('');
+      return '<section class="day' + (idx === 0 ? ' first' : '') + '"><h2>' + esc(cap(labelFull(d.b.key))) + '</h2><p class="sub">' + d.ps.length + ' ' + plural(d.ps.length, 'persona', 'personas') + ' con comida · ' + d.b.total + ' ' + plural(d.b.total, 'ración', 'raciones') + '</p>' +
+        '<h3>Personas por área</h3><table class="small"><thead><tr>' + th('Área') + th('Personas', 'n') + th('Comidas', 'n') + th('Cenas', 'n') + th('Snacks', 'n') + '</tr></thead><tbody>' + areaRows + '</tbody></table>' +
+        '<h3>Lista de control</h3><table><thead><tr>' + th('N.º', 'n') + th('Nombre') + th('Área') + th('Comida', 'c') + th('Cena', 'c') + th('Snack', 'c') + th('Entregado', 'c') + '</tr></thead><tbody>' + rows + '</tbody></table></section>';
+    }).join('');
+    const css = '*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#17171C;margin:0;padding:24px;font-size:13px}h1{font-size:22px;margin:0 0 4px}h2{font-size:18px;margin:0 0 2px}h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6B6B75;margin:16px 0 6px}.sub,.meta{color:#6B6B75;margin:0 0 6px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #BDBDC4;padding:5px 8px;text-align:left}th{background:#F2F2F2}.n{text-align:right;width:1%;white-space:nowrap}.c{text-align:center;width:1%;white-space:nowrap}.box{width:90px}.small{max-width:480px}.day{margin-top:28px;break-before:page;page-break-before:always}.day.first{break-before:auto;page-break-before:auto}tr{break-inside:avoid}.bar{display:flex;gap:12px;align-items:center;margin-bottom:16px}button{font:inherit;font-weight:700;background:#CC1257;color:#fff;border:0;border-radius:8px;padding:10px 18px;cursor:pointer}@page{margin:12mm}@media print{.noprint{display:none}body{padding:0}}';
+    return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lista de control de alimentos</title><style>' + css + '</style></head><body>' +
+      '<div class="bar noprint"><button type="button" onclick="window.print()">Imprimir</button><span class="meta">También puedes usar Ctrl + P (o Cmd + P).</span></div>' +
+      '<h1>Lista de control de alimentos</h1><p class="meta">Yoshi Cash · ' + esc(scopeText) + '</p><p class="meta">Generada: ' + esc(when) + '</p>' +
+      '<p><strong>' + t.people + ' ' + plural(t.people, 'persona', 'personas') + '</strong> · ' + t.byDay.length + ' ' + plural(t.byDay.length, 'día', 'días') + ' · <strong>' + t.raciones + ' ' + plural(t.raciones, 'ración', 'raciones') + '</strong></p>' +
+      '<h3>Resumen por día</h3>' + summary + days + '</body></html>';
+  }
+
+  /* ---------- Archivo de tokens (Excel con la plantilla del cliente, una hoja por tipo) ---------- */
+  const TOKENS_TITLE = 'Plantilla de Importación de Códigos de Tokens';
+  const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function tokensFiles(r) {
+    const sheets = MEALS.map((m) => ({
+      name: m.plural,
+      rows: r.people.map((p) => ({ name: p.name, n: personTotals(p.days)[m.key] })).filter((x) => x.n > 0)
+    })).filter((s) => s.rows.length > 0);
+    const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+    const RN = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const inl = (ref, s, text) => '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(text) + '</t></is></c>';
+    const files = {};
+    files['[Content_Types].xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map((s, i) => '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('') + '</Types>';
+    files['_rels/.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+    files['xl/workbook.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="' + NS + '" xmlns:r="' + RN + '"><sheets>' +
+      sheets.map((s, i) => '<sheet name="' + xmlEsc(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 2) + '"/>').join('') + '</sheets></workbook>';
+    files['xl/_rels/workbook.xml.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>' +
+      sheets.map((s, i) => '<Relationship Id="rId' + (i + 2) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>').join('') + '</Relationships>';
+    const al = '<alignment horizontal="left" vertical="center"/>';
+    files['xl/styles.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="' + NS + '"><fonts count="4"><font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font><font><b/><sz val="18"/><color rgb="FF000000"/><name val="Calibri"/></font><font><b/><sz val="12"/><color rgb="FF000000"/><name val="Calibri"/></font><font><sz val="12"/><color rgb="FF000000"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">' + al + '</xf><xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1">' + al + '</xf><xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">' + al + '</xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    sheets.forEach((s, i) => {
+      const last = 3 + s.rows.length;
+      let rows = '<row r="1">' + inl('A1', 1, TOKENS_TITLE) + '<c r="B1" s="1"/><c r="C1" s="1"/><c r="D1" s="1"/></row>';
+      rows += '<row r="3">' + inl('A3', 2, 'Código') + inl('B3', 2, 'Comentario') + inl('C3', 2, 'Tipo de Token') + inl('D3', 2, 'Total Asignado') + '</row>';
+      s.rows.forEach((x, j) => {
+        const n = 4 + j;
+        rows += '<row r="' + n + '"><c r="A' + n + '" s="3"/>' + inl('B' + n, 3, x.name) + inl('C' + n, 3, s.name) + '<c r="D' + n + '" s="3"><v>' + x.n + '</v></c></row>';
+      });
+      files['xl/worksheets/sheet' + (i + 1) + '.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="' + NS + '"><dimension ref="A1:D' + last + '"/><cols><col min="1" max="1" width="25" customWidth="1"/><col min="2" max="2" width="42" customWidth="1"/><col min="3" max="4" width="20" customWidth="1"/></cols><sheetData>' + rows + '</sheetData><mergeCells count="1"><mergeCell ref="A1:D1"/></mergeCells></worksheet>';
+    });
+    return files;
+  }
+  async function tokensBuffer(r) {
+    const zip = new window.JSZip();
+    const files = tokensFiles(r);
+    Object.keys(files).forEach((k) => zip.file(k, files[k]));
+    return zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE' });
+  }
+
+  function Ticket({ r, dl, onBack }) {
+    const [note, setNote] = useState(null);
+    const [manual, setManual] = useState(null);
+    const taRef = useRef(null);
+    useEffect(() => { if (manual && taRef.current) { taRef.current.focus(); taRef.current.select(); } }, [manual]);
+
+    async function saveFile(kind) {
+      try {
+        let data;
+        let filename;
+        if (kind === 'tokens') {
+          if (!window.JSZip) { setNote({ err: true, msg: 'No se pudo cargar el generador de Excel. Revisa tu conexión y recarga la página.' }); return; }
+          data = await tokensBuffer(r);
+          filename = 'Tokens-' + r.folio + '.xlsx';
+        } else {
+          data = kind === 'csv' ? buildCsv(r) : buildTxt(r);
+          filename = 'Comprobante-' + r.folio + (kind === 'csv' ? '.csv' : '.txt');
+        }
+        await dl.save({ filename, data });
+        setNote({ ok: true, msg: kind === 'tokens' ? 'Archivo de tokens guardado. Tiene una hoja por tipo: Comidas, Cenas y Snacks.' : 'Archivo guardado. Envíanoslo como respaldo.' });
+      } catch (e) {
+        if (e && e.code === 'declined') setNote({ msg: 'Descarga cancelada.' });
+        else setNote({ err: true, msg: 'No se pudo guardar el archivo. Usa «Copiar» o toma una captura del ticket.' });
+      }
+    }
+    async function copy(kind) {
+      const text = kind === 'csv' ? buildCsv(r).replace('﻿', '') : buildTxt(r);
+      try {
+        await navigator.clipboard.writeText(text);
+        setManual(null);
+        setNote({ ok: true, msg: kind === 'csv' ? 'CSV copiado. Pégalo en Excel u otra hoja de cálculo.' : 'Ticket copiado al portapapeles.' });
+      } catch (e) {
+        setManual(text);
+        setNote({ err: true, msg: 'Tu navegador bloqueó el portapapeles. El texto quedó seleccionado abajo: cópialo con Ctrl/Cmd + C.' });
+      }
+    }
+
+    const btn = 'focus-ring inline-flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold ';
+    const primary = btn + 'bg-accent text-accent-ink';
+    const secondary = btn + 'border border-line bg-surface text-ink';
+    const dayGrid = 'grid grid-cols-[minmax(0,1fr)_2.4rem_2.4rem_2.4rem_2.6rem] items-baseline gap-x-1';
+    const Dash = () => html`<div className="my-3 border-t border-dashed border-ticket-mute"></div>`;
+    const KV = ({ k, v }) => html`<div className="flex justify-between gap-3"><span className="text-ticket-mute shrink-0">${k}</span><span className="min-w-0 break-words text-right font-medium">${v}</span></div>`;
+    const nd = r.totals.byDay.length;
+
+    return html`<div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <button type="button" onClick=${onBack} className="focus-ring inline-flex w-fit items-center gap-2 rounded-md py-2 text-sm font-medium text-mute hover:text-ink">
+          <${Icon} d=${P.back} size=${18} /> Volver a editar la lista
+        </button>
+        <div>
+          <h2 className="font-display text-2xl font-bold">Comprobante generado</h2>
+          <p className="mt-1 max-w-xl text-sm text-mute">Guarda este comprobante y compártelo con nosotros. Si cambias algo en la lista, tendrás que generar uno nuevo.</p>
+        </div>
+      </div>
+
+      <div className="mx-auto w-full max-w-md" aria-label="Comprobante">
+        <article className="border border-b-0 border-line bg-ticket px-5 pb-4 pt-6 font-mono text-[13px] leading-5 text-ticket-ink">
+          ${r.example ? html`<p className="mb-4 border-2 border-danger px-2 py-1.5 text-center font-semibold text-danger bg-danger-bg">MUESTRA · DATOS DE EJEMPLO · SIN VALOR</p>` : null}
+          <div className="text-center">
+            <p className="text-base font-semibold tracking-wide">ACUSE DE RECIBO</p>
+            <p>ASIGNACIÓN DE ALIMENTOS</p>
+          </div>
+          <${Dash} />
+          <div className="flex flex-col gap-0.5">
+            <${KV} k="Folio" v=${r.folio} />
+            <${KV} k="Fecha" v=${r.fechaLarga} />
+            <${KV} k="Hora" v=${r.hora} />
+            <${KV} k="Zona" v=${r.tzName + ' (UTC' + r.tzOff + ')'} />
+            ${r.evento ? html`<${KV} k="Evento" v=${r.evento} />` : null}
+            <${KV} k="Responsable" v=${r.responsable} />
+            <${KV} k="Días con comida" v=${nd} />
+            ${r.rango ? html`<${KV} k="Fechas" v=${r.rango} />` : null}
+          </div>
+          <${Dash} />
+          <p className="font-semibold">TOTALES POR DÍA</p>
+          <div className=${dayGrid + ' mt-1 text-xs text-ticket-mute'}>
+            <span>Fecha</span><span className="text-right">COM</span><span className="text-right">CEN</span><span className="text-right">SNK</span><span className="text-right">TOT</span>
+          </div>
+          <div className="mt-1 flex flex-col gap-0.5 tabular">
+            ${r.totals.byDay.map((b) => html`<div key=${b.key} className=${dayGrid}>
+              <span className="min-w-0 break-words">${labelShort(b.key)}</span>
+              <span className="text-right">${b.comida}</span><span className="text-right">${b.cena}</span><span className="text-right">${b.snack}</span><span className="text-right font-semibold">${b.total}</span>
+            </div>`)}
+          </div>
+          <${Dash} />
+          <div className="flex flex-col gap-0.5 tabular">
+            <${KV} k="Personas" v=${r.totals.people} />
+            <${KV} k="Comidas" v=${r.totals.comida} />
+            <${KV} k="Cenas" v=${r.totals.cena} />
+            <${KV} k="Snacks" v=${r.totals.snack} />
+            <div className="mt-1 flex justify-between gap-3 border-t border-ticket-ink pt-1.5 text-base font-semibold"><span>TOTAL RACIONES</span><span>${r.totals.raciones}</span></div>
+          </div>
+          <${Dash} />
+          <p className="font-semibold">DETALLE POR PERSONA</p>
+          <p className="text-xs text-ticket-mute">COM = Comida · CEN = Cena · SNK = Snack</p>
+          <div className="mt-2 flex flex-col">
+            ${r.people.map((p, i) => html`<div key=${i} className="border-t border-dashed border-ticket-mute py-2 first:border-t-0">
+              <p className="break-words"><span className="text-ticket-mute tabular">${i + 1}.</span><span className="ml-1.5 font-semibold">${p.name}</span>${p.area ? html`<span className="ml-1.5 text-ticket-mute">· ${p.area}</span>` : null}</p>
+              <div className="mt-1 flex flex-col gap-0.5">
+                ${runsOf(p.days).map((run) => html`<div key=${run.from} className="flex justify-between gap-3">
+                  <span className="min-w-0 break-words">${runLabel(run.from, run.to)}</span>
+                  <span className="shrink-0 text-ticket-mute">${mealsShort(run.mask)}</span>
+                </div>`)}
+              </div>
+            </div>`)}
+          </div>
+          <${Dash} />
+          <p className="text-xs text-ticket-mute">${r.declaracion}</p>
+          <div className="mt-10 border-t border-ticket-ink pt-1 text-center">
+            <p className="break-words font-medium">${r.responsable}</p>
+            <p className="text-xs text-ticket-mute">Nombre y firma del responsable</p>
+          </div>
+          ${r.hash ? html`<${Dash} /><p className="text-xs text-ticket-mute">Huella SHA-256 del contenido</p><p className="break-all text-[11px]">${r.hash}</p>` : null}
+        </article>
+        <div className="ticket-edge" aria-hidden="true"></div>
+      </div>
+
+      <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+        ${dl
+          ? html`<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <button type="button" onClick=${() => saveFile('tokens')} className=${primary}><${Icon} d=${P.download} size=${20} /> Descargar archivo tokens</button>
+              <button type="button" onClick=${() => saveFile('txt')} className=${secondary}><${Icon} d=${P.download} size=${20} /> Descargar ticket (.txt)</button>
+            </div>`
+          : null}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button type="button" onClick=${() => copy('csv')} className=${dl ? secondary : primary}><${Icon} d=${P.copy} size=${20} /> Copiar CSV</button>
+          <button type="button" onClick=${() => copy('txt')} className=${secondary}><${Icon} d=${P.copy} size=${20} /> Copiar ticket</button>
+        </div>
+        <p role="status" aria-live="polite" className=${'text-sm font-medium ' + (note ? (note.err ? 'text-danger' : note.ok ? 'text-ok' : 'text-mute') : 'hidden')}>${note ? note.msg : ''}</p>
+        ${manual ? html`<div>
+          <label htmlFor="copia-manual" className="sr-only">Texto para copiar</label>
+          <textarea id="copia-manual" ref=${taRef} readOnly=${true} value=${manual} rows=${8} className="focus-ring w-full rounded-lg border border-line bg-subtle p-3 font-mono text-xs text-ink"></textarea>
+        </div>` : null}
+      </div>
+    </div>`;
+  }
+
+  const ROLES = {
+    empleado: 'Empleado de Yoshi',
+    invitado: 'Invitado'
+  };
+
+  /* Pantalla de inicio: elige cómo entrar */
+  function Welcome({ onEnter }) {
+    const base = 'focus-ring group flex w-full items-center gap-4 rounded-2xl border-2 p-4 text-left sm:p-5 ';
+    const Opt = ({ id, icon, title, text, primary }) => html`<button type="button" onClick=${() => onEnter(id)}
+      className=${base + (primary ? 'border-accent bg-accent text-accent-ink' : 'border-line bg-surface text-ink hover:border-accent')}>
+      <span className=${'grid h-12 w-12 shrink-0 place-items-center rounded-xl ' + (primary ? 'bg-accent-ink text-accent' : 'bg-accent-soft text-accent')}><${Icon} d=${icon} size=${24} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-lg font-semibold">${title}</span>
+        <span className=${'mt-0.5 block text-sm ' + (primary ? 'opacity-90' : 'text-mute')}>${text}</span>
+      </span>
+      <${Icon} d=${P.arrow} size=${22} cls="shrink-0 transition-transform group-hover:translate-x-1" />
+    </button>`;
+    return html`<main className="mx-auto flex min-h-[80vh] w-full max-w-md flex-col items-center justify-center gap-8 py-8">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <img src=${LOGO} alt="" width=${159} height=${160} className="h-24 w-auto" />
+        <div>
+          <h1 className="font-display text-4xl font-bold tracking-tight">Yoshi <span className="text-accent">Cash</span></h1>
+          <p className="mt-1 text-base text-mute">Control de Voluntarios</p>
+        </div>
+      </div>
+      <div className="flex w-full flex-col gap-3" role="group" aria-label="Elige cómo quieres ingresar">
+        <p className="text-center text-sm font-semibold">¿Cómo quieres ingresar?</p>
+        <${Opt} id="empleado" icon=${P.briefcase} primary=${true} title="Empleado de Yoshi" text="Acceso para el equipo de Yoshi" />
+        <${Opt} id="invitado" icon=${P.user} primary=${false} title="Invitado" text="Acceso para clientes e invitados" />
+      </div>
+    </main>`;
+  }
+
+  /* ---------- Usuarios de empleados (se guardan en este navegador) ---------- */
+  const USERS_KEY = 'control-voluntarios:users:v1';
+  function loadUsers() {
+    try {
+      const a = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+      return Array.isArray(a) ? a.filter((u) => u && u.key && u.salt && u.hash && u.name) : [];
+    } catch (e) { return []; }
+  }
+  function saveUsers(a) { try { localStorage.setItem(USERS_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } }
+  const toHex = (buf) => Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  const newSalt = () => toHex(crypto.getRandomValues(new Uint8Array(16)));
+  async function pwHash(pw, saltHex) {
+    const salt = new Uint8Array(saltHex.match(/../g).map((x) => parseInt(x, 16)));
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+    return toHex(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, key, 256));
+  }
+
+  function EmployeeAuth({ onBack, onLogin }) {
+    const [users, setUsers] = useState(loadUsers);
+    const [mode, setMode] = useState(() => (loadUsers().length ? 'login' : 'create'));
+    const [name, setName] = useState('');
+    const [pw, setPw] = useState('');
+    const [pw2, setPw2] = useState('');
+    const [show, setShow] = useState(false);
+    const [err, setErr] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const fails = useRef(0);
+    const lockUntil = useRef(0);
+    const nameRef = useRef(null);
+    useEffect(() => { if (nameRef.current) nameRef.current.focus(); }, [mode]);
+
+    const switchMode = (m) => { setMode(m); setErr(null); setPw(''); setPw2(''); };
+    async function submit(e) {
+      e.preventDefault();
+      if (busy) return;
+      setErr(null);
+      const clean = collapse(name);
+      const key = normalize(clean);
+      if (!(window.crypto && crypto.subtle)) { setErr({ t: 'Este navegador no permite crear usuarios seguros', d: 'Abre la página en un navegador actualizado.' }); return; }
+      if (mode === 'create') {
+        if (clean.length < 3) { setErr({ t: 'Escribe tu nombre', d: 'Mínimo 3 letras.' }); return; }
+        if (users.some((u) => u.key === key)) { setErr({ t: 'Ese usuario ya existe', d: 'Usa otro nombre o inicia sesión.' }); return; }
+        if (pw.length < 6) { setErr({ t: 'La contraseña es muy corta', d: 'Usa al menos 6 caracteres.' }); return; }
+        if (pw !== pw2) { setErr({ t: 'Las contraseñas no coinciden', d: 'Escríbela igual en los dos campos.' }); return; }
+        setBusy(true);
+        try {
+          const salt = newSalt();
+          const hash = await pwHash(pw, salt);
+          const next = users.concat([{ id: uid(), name: clean, key, salt, hash, created: Date.now() }]);
+          if (!saveUsers(next)) { setErr({ t: 'No se pudo guardar el usuario', d: 'Este navegador no permite guardar datos. Revisa si estás en una ventana privada.' }); setBusy(false); return; }
+          setUsers(next);
+          onLogin(clean);
+        } catch (x) { setErr({ t: 'No se pudo crear el usuario', d: 'Inténtalo de nuevo.' }); setBusy(false); }
+        return;
+      }
+      if (Date.now() < lockUntil.current) { setErr({ t: 'Demasiados intentos', d: 'Espera unos segundos antes de intentar de nuevo.' }); return; }
+      if (!clean || !pw) { setErr({ t: 'Escribe tu usuario y tu contraseña' }); return; }
+      setBusy(true);
+      try {
+        const u = users.find((x) => x.key === key);
+        const hash = await pwHash(pw, u ? u.salt : newSalt());
+        if (u && hash === u.hash) { onLogin(u.name); return; }
+        fails.current += 1;
+        if (fails.current >= 5) { fails.current = 0; lockUntil.current = Date.now() + 30000; }
+        setErr({ t: 'Usuario o contraseña incorrectos', d: 'Revisa los datos e inténtalo de nuevo.' });
+        setPw('');
+      } catch (x) { setErr({ t: 'No se pudo iniciar sesión', d: 'Inténtalo de nuevo.' }); }
+      setBusy(false);
+    }
+
+    const field = 'focus-ring w-full rounded-lg border-2 border-line bg-subtle px-4 py-3 text-base text-ink placeholder:text-mute focus:border-accent';
+    const seg = (key, label) => html`<button type="button" aria-pressed=${mode === key} onClick=${() => switchMode(key)}
+      className=${'focus-ring flex-1 px-3 py-2 text-sm font-semibold ' + (mode === key ? 'bg-accent-soft text-accent' : 'bg-surface text-mute hover:text-ink')}>${label}</button>`;
+    const create = mode === 'create';
+
+    return html`<main className="mx-auto flex min-h-[80vh] w-full max-w-md flex-col justify-center gap-6 py-8">
+      <button type="button" onClick=${onBack} className="focus-ring inline-flex w-fit items-center gap-2 rounded-md py-2 text-sm font-medium text-mute hover:text-ink"><${Icon} d=${P.back} size=${18} /> Volver</button>
+      <div className="flex items-center gap-3">
+        <img src=${LOGO} alt="" width=${159} height=${160} className="h-12 w-auto shrink-0" />
+        <div className="min-w-0">
+          <h1 className="font-display text-2xl font-bold tracking-tight">Empleado de Yoshi</h1>
+          <p className="text-sm text-mute">${create ? 'Crea tu usuario para entrar.' : 'Entra con tu usuario y contraseña.'}</p>
+        </div>
+      </div>
+      <form onSubmit=${submit} noValidate className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 sm:p-6">
+        <div role="group" aria-label="Elige una opción" className="flex overflow-hidden rounded-lg border border-line">${seg('login', 'Iniciar sesión')}${seg('create', 'Crear usuario')}</div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="au-nombre" className="text-sm font-semibold">${create ? 'Tu nombre (será tu usuario)' : 'Usuario'}</label>
+          <input id="au-nombre" ref=${nameRef} type="text" autoComplete="username" maxLength=${60} value=${name} onChange=${(e) => { setName(e.target.value); setErr(null); }} placeholder="Nombre y apellido" className=${field} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="au-clave" className="text-sm font-semibold">Contraseña</label>
+          <div className="relative">
+            <input id="au-clave" type=${show ? 'text' : 'password'} autoComplete=${create ? 'new-password' : 'current-password'} maxLength=${100} value=${pw} onChange=${(e) => { setPw(e.target.value); setErr(null); }} className=${field + ' pr-24'} />
+            <button type="button" onClick=${() => setShow((s) => !s)} aria-pressed=${show} className="focus-ring absolute inset-y-1 right-1 rounded-md px-3 text-sm font-medium text-mute hover:text-ink">${show ? 'Ocultar' : 'Mostrar'}</button>
+          </div>
+          ${create ? html`<p className="text-xs text-mute">Mínimo 6 caracteres.</p>` : null}
+        </div>
+        ${create ? html`<div className="flex flex-col gap-1.5">
+          <label htmlFor="au-clave2" className="text-sm font-semibold">Repite la contraseña</label>
+          <input id="au-clave2" type=${show ? 'text' : 'password'} autoComplete="new-password" maxLength=${100} value=${pw2} onChange=${(e) => { setPw2(e.target.value); setErr(null); }} className=${field} />
+        </div>` : null}
+        ${err ? html`<${Alert} title=${err.t}>${err.d}<//>` : null}
+        <button type="submit" disabled=${busy} className=${'focus-ring inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3.5 text-base font-semibold ' + (busy ? 'cursor-not-allowed bg-line text-mute' : 'bg-accent text-accent-ink')}>
+          <${Icon} d=${create ? P.plus : P.check} size=${20} sw=${create ? 2.5 : 3} /> ${busy ? 'Un momento…' : create ? 'Crear usuario y entrar' : 'Entrar'}
+        </button>
+        <p className="text-xs text-mute">Los usuarios se guardan solo en este navegador y este dispositivo. Si abres la página en otro lado, tendrás que crear el usuario de nuevo.</p>
+      </form>
+    </main>`;
+  }
+
+  /* ---------- Aplicación ---------- */
+  function App() {
+    const init = useMemo(loadStore, []);
+    const [people, setPeople] = useState(init.people);
+    const [example, setExample] = useState(init.example);
+    const [draftDays, setDraftDays] = useState(() => ({ [keyOf(new Date())]: ALL }));
+    const [role, setRole] = useState(null);
+    const [auth, setAuth] = useState(false);
+    const [user, setUser] = useState('');
+    const [printNote, setPrintNote] = useState(null);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterDays, setFilterDays] = useState(() => ({ [keyOf(new Date())]: ALL }));
+    const [importOpen, setImportOpen] = useState(false);
+    const [importNote, setImportNote] = useState('');
+    const noteTimer = useRef(null);
+    const [view, setView] = useState('edit');
+    const [receipt, setReceipt] = useState(null);
+    const [showModal, setShowModal] = useState(false);
+    const [editingId, setEditingId] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [flash, setFlash] = useState(null);
+    const [dl, setDl] = useState(null);
+    const flashTimer = useRef(null);
+    const flashN = useRef(0);
+
+    useEffect(() => {
+      let on = true;
+      try {
+        const c = window.claude;
+        if (c && c.use) c.use('downloads').then((d) => { if (on) setDl(d || null); }).catch(() => {});
+      } catch (e) { /* sin capacidad de descarga */ }
+      return () => { on = false; };
+    }, []);
+    useEffect(() => { saveStore({ people, example }); }, [people, example]);
+    useEffect(() => { window.scrollTo(0, 0); }, [view]);
+
+    const byNorm = useMemo(() => {
+      const m = new Map();
+      people.forEach((p) => m.set(normalize(p.name), p));
+      return m;
+    }, [people]);
+    const fKeys = useMemo(() => sortedKeys(filterDays), [filterDays]);
+    const viewPeople = useMemo(() => {
+      if (!fKeys.length) return people;
+      return people.map((p) => { const d = {}; fKeys.forEach((k) => { if (p.days[k]) d[k] = p.days[k]; }); return { ...p, days: d }; }).filter((p) => Object.keys(p.days).length > 0);
+    }, [people, fKeys]);
+    const totals = useMemo(() => totalsOf(viewPeople), [viewPeople]);
+    const allTotals = useMemo(() => totalsOf(people), [people]);
+    const nd = allTotals.byDay.length;
+    const dataDays = useMemo(() => { const o = {}; allTotals.byDay.forEach((b) => { o[b.key] = true; }); return o; }, [allTotals]);
+    const scope = fKeys.length === 0 ? 'Todos los días' : fKeys.length === 1 ? labelFull(fKeys[0]) : fKeys.length + ' días: ' + diasTexto(filterDays);
+    const chipDate = fKeys.length === 1 ? (pad(parseKey(fKeys[0]).getDate()) + '/' + pad(parseKey(fKeys[0]).getMonth() + 1) + '/' + parseKey(fKeys[0]).getFullYear()) : fKeys.length === 0 ? 'Todos los días' : fKeys.length + ' días';
+    const applyFilter = (m) => { setFilterDays(m); setDraftDays({ ...m }); };
+    const areas = useMemo(() => {
+      const m = new Map();
+      people.forEach((p) => { if (p.area && !m.has(normalize(p.area))) m.set(normalize(p.area), p.area); });
+      return Array.from(m.values()).sort((a, b) => a.localeCompare(b, 'es'));
+    }, [people]);
+    const sinComida = useMemo(() => people.filter((p) => personTotals(p.days).raciones === 0), [people]);
+    const hoy = useMemo(() => { const d = new Date(); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); }, []);
+    const draftPt = personTotals(draftDays);
+    const step = view === 'ticket' ? 3 : people.length > 0 ? 2 : 1;
+    const editing = editingId ? people.find((p) => p.id === editingId) : null;
+
+    function flashRow(p) {
+      flashN.current += 1;
+      setFlash({ id: p.id, n: flashN.current });
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(null), 2800);
+      setTimeout(() => {
+        const el = document.getElementById('row-' + p.id);
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 50);
+    }
+    const addPerson = (p) => setPeople((l) => [...l, p]);
+    const removePerson = (id) => setPeople((l) => l.flatMap((p) => {
+      if (p.id !== id) return [p];
+      if (!fKeys.length) return [];
+      const d = { ...p.days };
+      fKeys.forEach((k) => { delete d[k]; });
+      return Object.keys(d).length ? [{ ...p, days: d }] : [];
+    }));
+    const savePerson = (id, data) => { setPeople((l) => l.map((p) => (p.id === id ? { ...p, ...data } : p))); setEditingId(null); };
+    const clearAll = () => { setPeople([]); setExample(false); };
+    const importPeople = (list) => {
+      const fixed = list.map((p) => { const known = areas.find((x) => normalize(x) === normalize(p.area)); return known ? { ...p, area: known } : p; });
+      const upd = example ? 0 : fixed.filter((p) => byNorm.has(normalize(p.name))).length;
+      setPeople((l) => {
+        if (example) return fixed;
+        const next = [...l];
+        fixed.forEach((p) => {
+          const i = next.findIndex((x) => normalize(x.name) === normalize(p.name));
+          if (i >= 0) next[i] = { ...next[i], days: { ...next[i].days, ...p.days } };
+          else next.push(p);
+        });
+        return next;
+      });
+      setExample(false);
+      const m = {};
+      fixed.forEach((p) => Object.keys(p.days).forEach((k) => { m[k] = ALL; }));
+      setFilterDays(m);
+      setDraftDays(Object.keys(m).length === 1 ? { ...m } : {});
+      setImportNote('Se importaron ' + fixed.length + ' ' + plural(fixed.length, 'persona', 'personas') + (upd ? ' (' + upd + ' ya ' + plural(upd, 'estaba registrada', 'estaban registradas') + ': se les agregaron los días)' : '') + '. Ahora ves ' + (Object.keys(m).length === 1 ? 'ese día' : 'esos días') + '.');
+      clearTimeout(noteTimer.current);
+      noteTimer.current = setTimeout(() => setImportNote(''), 7000);
+    };
+    const loadExample = () => {
+      const base = new Date();
+      setPeople(EJEMPLO.map((e) => {
+        const days = {};
+        for (let i = e[2]; i <= e[3]; i++) days[keyOf(addDays(base, i - 1))] = e[4];
+        if (e[5]) Object.keys(e[5]).forEach((k) => { days[keyOf(addDays(base, e[2] - 1 + (+k)))] = e[5][k]; });
+        return { id: uid(), name: e[0], area: e[1], days };
+      }));
+      setExample(true);
+    };
+
+    async function generate({ responsable, evento }) {
+      setBusy(true);
+      const d = new Date();
+      const snap = people.map((p) => ({ name: p.name, area: p.area || '', days: cleanDays(p.days) }));
+      const folio = makeFolio(d);
+      const iso = isoLocal(d);
+      const canon = [folio, iso, responsable, evento].concat(snap.map((p, i) => [i + 1, p.name, p.area, sortedKeys(p.days).map((k) => k + ':' + p.days[k]).join(',')].join('|'))).join('\n');
+      const hash = await sha256(canon);
+      let tzName = '';
+      try { tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { tzName = ''; }
+      const tt = totalsOf(snap);
+      const ks = tt.byDay.map((b) => b.key);
+      setReceipt({
+        folio, iso, hash, responsable, evento, people: snap, totals: tt, example,
+        rango: ks.length ? labelFull(ks[0]) + (ks.length > 1 ? ' al ' + labelFull(ks[ks.length - 1]) : '') : '',
+        fechaLarga: fechaLarga(d),
+        hora: pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + ' hrs',
+        tzName: tzName || 'Hora local', tzOff: tzOffset(d), declaracion: DECLARACION
+      });
+      setBusy(false);
+      setShowModal(false);
+      setView('ticket');
+    }
+
+    const guest = role === 'invitado';
+    async function downloadList() {
+      if (!viewPeople.length) { setPrintNote({ err: true, msg: 'No hay datos en esta selección para imprimir. Elige otro día en la fecha de arriba.' }); return; }
+      if (!dl) { setPrintNote({ err: true, msg: 'La descarga no está disponible en esta vista.' }); return; }
+      const d = new Date();
+      const when = fechaLarga(d) + ', ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ' hrs';
+      try {
+        await dl.save({ filename: 'Lista-control-' + keyOf(d) + '.html', data: buildPrintHtml(viewPeople, scope, when) });
+        setPrintNote({ ok: true, msg: 'Lista guardada. Ábrela y presiona «Imprimir».' });
+      } catch (e) {
+        setPrintNote(e && e.code === 'declined' ? { msg: 'Descarga cancelada.' } : { err: true, msg: 'No se pudo guardar la lista.' });
+      }
+    }
+    const logout = () => {
+      setMenuOpen(false); setFilterOpen(false); setImportOpen(false); setShowModal(false); setEditingId(null);
+      setView('edit');
+      setRole(null);
+      setUser('');
+      setAuth(false);
+      setPrintNote(null);
+    };
+    if (!role) {
+      if (auth) return html`<${EmployeeAuth} onBack=${() => setAuth(false)} onLogin=${(n) => { setUser(n); setRole('empleado'); setAuth(false); }} />`;
+      return html`<${Welcome} onEnter=${(id) => { if (id === 'empleado') setAuth(true); else setRole(id); }} />`;
+    }
+
+    return html`<div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+      <div className="flex items-center justify-end gap-2 text-sm">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 font-semibold text-accent"><${Icon} d=${role === 'empleado' ? P.briefcase : P.user} size=${14} />${ROLES[role]}${user ? ' · ' + user : ''}</span>
+        <button type="button" onClick=${logout} className="focus-ring rounded-md px-2 py-1 font-medium text-mute hover:text-ink">Cambiar acceso</button>
+      </div>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3"><img src=${LOGO} alt="" width=${159} height=${160} className="h-10 w-auto shrink-0" /><h1 className="font-display text-3xl font-bold tracking-tight">Control de Voluntarios</h1></div>
+          <p className="mt-1.5 max-w-xl text-base text-mute">${guest ? 'Importa tu archivo y consulta cuántas personas tienen comida cada día y de qué área son.' : 'Registra a cada persona y marca los días y las comidas que le tocan. Al terminar, genera tu comprobante.'}</p>
+          ${view === 'edit' ? html`<button type="button" onClick=${() => setFilterOpen(true)} aria-haspopup="dialog" title="Filtrar por día"
+            className="focus-ring mt-4 inline-flex max-w-full items-center gap-2 rounded-lg bg-subtle px-3.5 py-2 text-sm tabular hover:bg-accent-soft hover:text-accent">
+            <${Icon} d=${P.calendar} size=${16} cls="shrink-0" />
+            <span className="min-w-0 truncate">${chipDate} - Asignación de alimentos</span>
+            ${fKeys.length > 1 ? html`<span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-ink">${fKeys.length} días</span>` : null}
+            <${Icon} d=${P.down} size=${16} cls="shrink-0" />
+          </button>` : html`<p className="mt-4 inline-block rounded-lg bg-subtle px-3.5 py-2 text-sm tabular">${hoy} - Asignación de alimentos</p>`}
+        </div>
+        ${guest ? null : html`<${Steps} step=${step} />`}
+      </header>
+
+      ${view === 'ticket' && receipt
+        ? html`<${Ticket} r=${receipt} dl=${dl} onBack=${() => setView('edit')} />`
+        : html`
+          ${guest ? html`<div className="flex justify-end"><button type="button" onClick=${() => setImportOpen(true)} className="focus-ring inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2 text-sm font-semibold hover:border-accent hover:text-accent"><${Icon} d=${P.upload} size=${16} /> Importar datos</button></div>` : null}
+          ${importNote ? html`<p role="status" className="flex items-center gap-2 rounded-xl border border-line bg-ok-bg px-4 py-3 text-sm font-medium text-ok"><${Icon} d=${P.check} size=${18} sw=${3} cls="shrink-0" />${importNote}</p>` : null}
+          <${Counters} t=${totals} scope=${scope} />
+          ${guest ? null : html`<${AddForm} byNorm=${byNorm} areas=${areas} people=${people} days=${draftDays} setDays=${setDraftDays} onOpenMenu=${() => setMenuOpen(true)} onAdd=${addPerson} onDup=${flashRow} onImport=${() => setImportOpen(true)} defaultDays=${filterDays} onEditMatch=${(p) => setEditingId(p.id)} />`}
+          <${PeopleTable} readOnly=${guest} people=${viewPeople} scope=${scope} total=${people.length} onShowAll=${() => applyFilter({})} flash=${flash} example=${example} onDelete=${removePerson} onClear=${clearAll} onExample=${loadExample} onEdit=${(p) => setEditingId(p.id)} />
+          ${guest ? html`<div className="sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-line bg-surface p-3 shadow-[0_-10px_28px_-14px_rgba(0,0,0,0.35)] sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0 px-1">
+              <p className="text-sm font-semibold">Lista para imprimir: ${scope}</p>
+              <p role="status" aria-live="polite" className=${'text-sm ' + (printNote ? (printNote.err ? 'font-medium text-danger' : printNote.ok ? 'font-medium text-ok' : 'text-mute') : 'text-mute')}>${printNote ? printNote.msg : 'Incluye cuántas personas hay por día y por área, con espacio para marcar la entrega.'}</p>
+            </div>
+            <button type="button" onClick=${downloadList} className="focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-4 text-base font-bold text-accent-ink sm:w-auto"><${Icon} d=${P.download} size=${22} /> Descargar lista para imprimir</button>
+          </div>` : null}
+          <div className=${(guest ? 'hidden ' : '') + 'sticky bottom-3 z-10 flex flex-col gap-3 rounded-2xl border border-line bg-surface p-3 shadow-[0_-10px_28px_-14px_rgba(0,0,0,0.35)] sm:flex-row sm:items-center sm:justify-between sm:p-4'}>
+            <p className=${'px-1 text-sm tabular ' + (sinComida.length ? 'font-semibold text-danger' : 'text-mute')}>
+              ${people.length === 0
+                ? 'Agrega al menos una persona para poder generar el comprobante.'
+                : sinComida.length > 0
+                  ? sinComida.length + ' ' + plural(sinComida.length, 'persona no tiene', 'personas no tienen') + ' comidas asignadas. Edítalas o elimínalas para continuar.'
+                  : html`<strong className="text-ink">${allTotals.people} ${plural(allTotals.people, 'persona', 'personas')}</strong> · ${nd} ${plural(nd, 'día', 'días')} · ${allTotals.raciones} raciones en total`}
+            </p>
+            <button type="button" disabled=${people.length === 0 || sinComida.length > 0} onClick=${() => setShowModal(true)}
+              className=${'focus-ring inline-flex w-full items-center justify-center gap-2 rounded-lg px-6 py-4 text-base font-bold sm:w-auto ' + (people.length === 0 || sinComida.length > 0 ? 'cursor-not-allowed bg-line text-mute' : 'bg-accent text-accent-ink')}>
+              <${Icon} d=${P.receipt} size=${22} /> Finalizar y Generar Comprobante
+            </button>
+          </div>`}
+
+      ${menuOpen && view === 'edit' ? html`<${DayMenu} value=${draftDays} onApply=${setDraftDays} onClose=${() => setMenuOpen(false)} idp="dm" />` : null}
+      ${filterOpen && view === 'edit' ? html`<${DayMenu} filter=${true} people=${people} dataDays=${dataDays} value=${filterDays} onApply=${applyFilter} onClose=${() => setFilterOpen(false)} idp="df" />` : null}
+      ${importOpen && view === 'edit' ? html`<${ImportModal} initialStart=${fKeys[0]} byNorm=${byNorm} dl=${dl} hasExample=${example} onImport=${importPeople} onClose=${() => setImportOpen(false)} />` : null}
+      ${showModal ? html`<${ConfirmModal} totals=${allTotals} busy=${busy} onCancel=${() => { if (!busy) setShowModal(false); }} onConfirm=${generate} />` : null}
+      ${editing ? html`<${EditModal} key=${editing.id} p=${editing} people=${people.filter((x) => x.id !== editing.id)} byNorm=${byNorm} areas=${areas} onSave=${savePerson} onCancel=${() => setEditingId(null)} />` : null}
+    </div>`;
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+})();
+
+</script>
+
+</body></html>
